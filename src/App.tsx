@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { AppShell } from './components/AppShell';
 import { AgentCard } from './components/AgentCard';
 import { MainStage } from './components/MainStage';
+import { SettingsPanel } from './components/SettingsPanel';
 import { useAgentStore } from './store/useAgentStore';
 
 export default function App() {
-  const { agents } = useAgentStore();
+  const { agents, eventLog } = useAgentStore();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const renderSidebar = () => (
     <div className="h-full flex flex-col">
@@ -16,6 +19,12 @@ export default function App() {
           <AgentCard key={agent.id} agent={agent} />
         ))}
       </div>
+      <button
+        onClick={() => setSettingsOpen(true)}
+        className="pixel-button text-[9px] font-pixel mt-2 w-full"
+      >
+        SETTINGS
+      </button>
     </div>
   );
 
@@ -30,9 +39,17 @@ export default function App() {
         <p className="text-pixel-text">[CONFIG] Successfully loaded 3 agent profiles into engine.</p>
         <p className="text-pixel-waiting">[WARN] Trae Solo adapter requires standard verification.</p>
         <p className="text-pixel-online">[READY] Core system fully listening on localhost:3000.</p>
+        {eventLog.map((log, i) => (
+          <p key={i} className="text-pixel-accent">{log}</p>
+        ))}
       </div>
     </div>
   );
 
-  return <AppShell sidebar={renderSidebar()} main={<MainStage />} bottom={renderTerminal()} />;
+  return (
+    <>
+      <AppShell sidebar={renderSidebar()} main={<MainStage />} bottom={renderTerminal()} />
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+    </>
+  );
 }
