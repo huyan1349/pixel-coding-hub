@@ -1,0 +1,61 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0b0b12;
+}
+::-webkit-scrollbar-thumb {
+  background: #181824;
+  border: 1px solid #9aa0a6;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #101018;
+  color: #f4f0d8;
+  font-family: system-ui, sans-serif;
+  overflow: hidden;
+}
+
+.pixel-panel {
+  background-color: #181824;
+  border: 2px solid #f4f0d8;
+  box-shadow: inset -2px -2px 0px #0b0b12;
+}
+
+.pixel-panel-inset {
+  background-color: #0b0b12;
+  border: 2px solid #000;
+  box-shadow: inset 2px 2px 0px rgba(0,0,0,0.5);
+}
+
+.pixel-button {
+  background-color: #181824;
+  border: 2px solid #f4f0d8;
+  color: #f4f0d8;
+  padding: 4px 12px;
+  font-family: inherit;
+  cursor: pointer;
+  position: relative;
+  box-shadow: 0 4px 0 #0b0b12;
+  top: 0;
+  transition: all 0.05s ease;
+}
+
+.pixel-button:hover {
+  background-color: #202030;
+  border-color: #ff70a6;
+}
+
+.pixel-button:active {
+  top: 4px;
+  box-shadow: 0 0px 0 #0b0b12;
+}

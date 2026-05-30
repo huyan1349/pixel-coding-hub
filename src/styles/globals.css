@@ -1,1 +1,19 @@
 @import "tailwindcss";
+
+@theme {
+  --color-pixel-bg: #101018;
+  --color-pixel-panel: #181824;
+  --color-pixel-dark: #0b0b12;
+  --color-pixel-text: #f4f0d8;
+  --color-pixel-muted: #9aa0a6;
+  --color-pixel-online: #57d68d;
+  --color-pixel-waiting: #ffd166;
+  --color-pixel-error: #ef476f;
+  --color-pixel-info: #4cc9f0;
+  --color-pixel-accent: #ff70a6;
+  --color-pixel-working: #f78c3d;
+
+  --font-pixel: "Press Start 2P", monospace;
+  --font-sans: system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
