@@ -9,7 +9,7 @@ export default function App() {
   const renderSidebar = () => (
     <div className="h-full flex flex-col">
       <div className="font-pixel text-[10px] text-pixel-muted mb-3 tracking-widest uppercase">
-        AGENTS CONFIG DOCK
+        AGENTS DOCK
       </div>
       <div className="flex-1 overflow-y-auto pr-1">
         {agents.map((agent) => (
@@ -21,7 +21,7 @@ export default function App() {
 
   const renderTerminal = () => (
     <div className="w-full h-full p-3 font-mono text-xs flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between text-pixel-muted border-b border-neutral-800 pb-1 mb-2 text-[11px]">
+      <div className="flex items-center justify-between text-pixel-muted border-b border-white/10 pb-1 mb-2 text-[11px]">
         <span>STREAM LOG // AUDIT_LOGGER</span>
         <span className="text-pixel-online">● CORE ONLINE</span>
       </div>
