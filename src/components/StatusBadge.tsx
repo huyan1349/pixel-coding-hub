@@ -4,18 +4,18 @@ import clsx from 'clsx';
 const colorMap: Record<AgentStatus, string> = {
   unconfigured: 'bg-white/10',
   offline: 'bg-white/5',
-  connecting: 'bg-pixel-waiting animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.4)]',
-  online: 'bg-pixel-online shadow-[0_0_12px_rgba(16,185,129,0.4)]',
-  working: 'bg-pixel-working animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.4)]',
-  waiting: 'bg-pixel-waiting shadow-[0_0_12px_rgba(245,158,11,0.4)]',
-  error: 'bg-pixel-error shadow-[0_0_12px_rgba(239,68,68,0.4)]',
+  connecting: 'bg-pixel-waiting animate-pulse',
+  online: 'bg-pixel-online',
+  working: 'bg-pixel-working animate-pulse',
+  waiting: 'bg-pixel-waiting',
+  error: 'bg-pixel-error',
 };
 
 export function StatusBadge({ status }: { status: AgentStatus }) {
   return (
     <div className="flex items-center gap-2">
-      <span className={clsx('w-2 h-2 block rounded-sm', colorMap[status])} />
-      <span className="text-[10px] font-mono uppercase text-pixel-muted">{status}</span>
+      <span className={clsx('w-1.5 h-1.5 block rounded-full', colorMap[status])} />
+      <span className="text-[9px] font-pixel uppercase text-pixel-muted">{status}</span>
     </div>
   );
 }

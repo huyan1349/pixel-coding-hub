@@ -14,14 +14,14 @@ export function AgentCard({ agent }: { agent: Agent }) {
       className={clsx(
         'glass-panel p-3 mb-2 cursor-pointer transition-all duration-300 ease-out',
         isSelected
-          ? 'border-pixel-accent/40 bg-white/5 -translate-y-0.5 scale-[1.01]'
-          : 'hover:-translate-y-1 hover:scale-[1.01] hover:border-white/20 hover:bg-white/5',
+          ? 'bg-white/[0.04] border-white/[0.12]'
+          : 'hover:bg-white/[0.04] hover:border-white/[0.12]',
       )}
     >
       <div className="flex items-center gap-3">
         <PixelAvatar kind={agent.kind} />
         <div className="flex-1 min-w-0">
-          <h3 className="font-mono text-sm font-medium text-pixel-text truncate">{agent.name}</h3>
+          <h3 className="font-mono text-sm font-medium text-neutral-200 truncate">{agent.name}</h3>
           <StatusBadge status={agent.status} />
         </div>
         <div>
@@ -31,7 +31,7 @@ export function AgentCard({ agent }: { agent: Agent }) {
                 e.stopPropagation();
                 triggerConnectionMock(agent.id);
               }}
-              className="pixel-button text-[10px] font-pixel px-2 py-1"
+              className="pixel-button text-[9px] font-pixel px-2 py-1"
             >
               CONN
             </button>
@@ -40,7 +40,7 @@ export function AgentCard({ agent }: { agent: Agent }) {
       </div>
       <div className="mt-2 flex flex-wrap gap-1">
         {agent.capabilities.map((cap) => (
-          <span key={cap} className="text-[9px] font-mono bg-white/5 border border-white/10 px-1.5 py-0.5 rounded-sm text-pixel-muted">
+          <span key={cap} className="text-[9px] font-mono bg-white/[0.02] border border-white/[0.06] px-1.5 py-0.5 rounded-sm text-pixel-muted">
             {cap}
           </span>
         ))}
