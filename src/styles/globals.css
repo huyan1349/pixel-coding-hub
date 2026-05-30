@@ -1,17 +1,17 @@
 @import "tailwindcss";
 
 @theme {
-  --color-pixel-bg: #0f172a;
-  --color-pixel-panel: #1e293b;
-  --color-pixel-dark: #020617;
-  --color-pixel-text: #f8fafc;
-  --color-pixel-muted: #94a3b8;
-  --color-pixel-online: #10b981;
-  --color-pixel-waiting: #f59e0b;
-  --color-pixel-error: #ef4444;
-  --color-pixel-info: #38bdf8;
-  --color-pixel-accent: #a78bfa;
-  --color-pixel-working: #f59e0b;
+  --color-pixel-bg: #0a0a0a;
+  --color-pixel-panel: #111111;
+  --color-pixel-dark: #050505;
+  --color-pixel-text: #e5e5e5;
+  --color-pixel-muted: #737373;
+  --color-pixel-online: #84a59d;
+  --color-pixel-waiting: #c2b280;
+  --color-pixel-error: #b56576;
+  --color-pixel-info: #789ca4;
+  --color-pixel-accent: #a3a3a3;
+  --color-pixel-working: #c2b280;
 
   --font-pixel: "Press Start 2P", monospace;
   --font-sans: system-ui, sans-serif;
