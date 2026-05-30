@@ -7,6 +7,8 @@ export type AgentStatus =
   | 'waiting'
   | 'error';
 
+export type TaskStatus = 'todo' | 'running' | 'done' | 'error';
+
 export interface Agent {
   id: string;
   name: string;
@@ -14,4 +16,20 @@ export interface Agent {
   status: AgentStatus;
   capabilities: string[];
   avatarSeed: string;
+}
+
+export interface FlowNodeData {
+  [key: string]: unknown;
+  label: string;
+  type: 'input' | 'task' | 'agent';
+  status: TaskStatus;
+  agentId?: string;
+  description?: string;
+}
+
+export interface SSEEvent {
+  nodeId: string;
+  status: TaskStatus;
+  timestamp: number;
+  message: string;
 }
