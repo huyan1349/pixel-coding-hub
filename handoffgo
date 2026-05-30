@@ -1,21 +1,25 @@
 # Handoffgo
 
 ## 已完成
-- GitHub 仓库创建: https://github.com/huyan1349/pixel-coding-hub (Public)
-- 本地 git 初始化 + 首次 push 到 main
-- 分支保护规则: main 分支禁止直接 push，必须通过 PR
-- 合并策略: 仅允许 Squash Merge（已禁用 Merge Commit 和 Rebase Merge）
-- PR 合并后自动删除分支
-- Git 全局代理已配置: socks5://127.0.0.1:7897
-- gh CLI 认证: huyan1349 (需代理 ALL_PROXY=socks5h://127.0.0.1:7897)
+- GitHub 仓库: https://github.com/huyan1349/pixel-coding-hub (Public)
+- 分支保护 + Squash Merge 规则
+- PR #3 feat/scaffold: Vite + React 19 + TypeScript + Tailwind v4
+- PR #4 feat/pixel-theme: @theme 色彩/字体令牌 + pixel.css
+- PR #5 feat/agent-store: Agent 类型 + Zustand store + mock 数据
+- PR #6 feat/agent-components: StatusBadge + PixelAvatar + AgentCard
+- PR #7 feat/app-layout: TopBar + AppShell + MainStage + App.tsx 组装
+- Dev server 运行正常 (localhost:3000)
+- Production build 通过
 
 ## Push 规范
 - 分支命名: feat/xxx, fix/xxx, refactor/xxx, chore/xxx, docs/xxx
-- Commit 格式: Conventional Commits (feat:, fix:, chore: 等)
-- 所有改动走 feature branch → PR → Squash Merge → main
+- Commit: Conventional Commits
+- 流程: feature branch → PR → Squash Merge → main
 - main 禁止直接 push
+- 代理: git config --global http.proxy socks5h://127.0.0.1:7897
 
 ## 未完成
-- 项目代码开发（Pixel Coding Hub 前端原型）
-- .gitignore 文件
+- Milestone 2: React Flow 协作可视化
+- Milestone 3: Mock 后端 + WebSocket 事件流
+- 设置页面 + 版本号管理
 - CI/CD 配置
