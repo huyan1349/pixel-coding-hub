@@ -16,6 +16,7 @@ export interface Agent {
   status: AgentStatus;
   capabilities: string[];
   avatarSeed: string;
+  apiKey: string;
 }
 
 export interface FlowNodeData {
@@ -30,6 +31,6 @@ export interface FlowNodeData {
 export interface SSEEvent {
   nodeId: string;
   status: TaskStatus;
-  timestamp: number;
   message: string;
+  timestamp: number;
 }

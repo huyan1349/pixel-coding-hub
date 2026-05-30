@@ -1,20 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAgentStore } from '../store/useAgentStore';
 
-const VERSION = 'v0.2.0-alpha';
+const VERSION = 'v0.3.0-alpha';
 
 export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { agents } = useAgentStore();
-  const [keys, setKeys] = useState<Record<string, string>>({
-    codex: '',
-    trae: '',
-    claude: '',
-  });
+  const { agents, updateAgentApiKey } = useAgentStore();
+  const [localKeys, setLocalKeys] = useState<Record<string, string>>({});
+  const [hydrated, setHydrated] = useState(false);
 
-  if (!open) return null;
+  useEffect(() => {
+    setHydrated(true);
+    const map: Record<string, string> = {};
+    agents.forEach((a) => { map[a.id] = a.apiKey || ''; });
+    setLocalKeys(map);
+  }, [agents, open]);
+
+  if (!open || !hydrated) return null;
 
   const handleKeyChange = (agentId: string, value: string) => {
-    setKeys((prev) => ({ ...prev, [agentId]: value }));
+    setLocalKeys((prev) => ({ ...prev, [agentId]: value }));
+    updateAgentApiKey(agentId, value);
   };
 
   return (
@@ -39,7 +44,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
               </label>
               <input
                 type="password"
-                value={keys[agent.id] ?? ''}
+                value={localKeys[agent.id] ?? ''}
                 onChange={(e) => handleKeyChange(agent.id, e.target.value)}
                 placeholder={`Enter ${agent.name} API key...`}
                 className="w-full bg-white/[0.02] border border-white/[0.08] rounded px-3 py-2 font-mono text-xs text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:border-white/[0.16] transition-colors duration-300"
@@ -48,7 +53,8 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           ))}
         </div>
 
-        <div className="mt-6 pt-3 border-t border-white/[0.06] flex justify-end">
+        <div className="mt-6 pt-3 border-t border-white/[0.06] flex justify-between items-center">
+          <span className="font-mono text-[10px] text-neutral-600">Persisted via localStorage</span>
           <span className="font-pixel text-[9px] text-neutral-600">{VERSION}</span>
         </div>
       </div>
