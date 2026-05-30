@@ -12,14 +12,16 @@ export function AgentCard({ agent }: { agent: Agent }) {
     <div
       onClick={() => selectAgent(agent.id)}
       className={clsx(
-        'pixel-panel p-3 mb-2 cursor-pointer transition-all',
-        isSelected ? 'border-pixel-accent bg-pixel-dark translate-x-1' : 'hover:border-pixel-info',
+        'glass-panel p-3 mb-2 cursor-pointer transition-all duration-300 ease-out',
+        isSelected
+          ? 'border-pixel-accent/40 bg-white/5 -translate-y-0.5 scale-[1.01]'
+          : 'hover:-translate-y-1 hover:scale-[1.01] hover:border-white/20 hover:bg-white/5',
       )}
     >
       <div className="flex items-center gap-3">
         <PixelAvatar kind={agent.kind} />
         <div className="flex-1 min-w-0">
-          <h3 className="font-mono text-sm font-bold text-pixel-text truncate">{agent.name}</h3>
+          <h3 className="font-mono text-sm font-medium text-pixel-text truncate">{agent.name}</h3>
           <StatusBadge status={agent.status} />
         </div>
         <div>
@@ -38,7 +40,7 @@ export function AgentCard({ agent }: { agent: Agent }) {
       </div>
       <div className="mt-2 flex flex-wrap gap-1">
         {agent.capabilities.map((cap) => (
-          <span key={cap} className="text-[9px] font-mono bg-pixel-dark border border-pixel-muted px-1 text-pixel-muted">
+          <span key={cap} className="text-[9px] font-mono bg-white/5 border border-white/10 px-1.5 py-0.5 rounded-sm text-pixel-muted">
             {cap}
           </span>
         ))}
