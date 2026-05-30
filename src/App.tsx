@@ -6,7 +6,7 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { useAgentStore } from './store/useAgentStore';
 
 export default function App() {
-  const { agents, eventLog } = useAgentStore();
+  const { agents, eventLog, sseConnected } = useAgentStore();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const renderSidebar = () => (
@@ -32,7 +32,9 @@ export default function App() {
     <div className="w-full h-full p-3 font-mono text-xs flex flex-col overflow-hidden">
       <div className="flex items-center justify-between text-neutral-400 border-b border-white/[0.08] pb-1 mb-2 text-[11px]">
         <span>STREAM LOG // AUDIT_LOGGER</span>
-        <span className="text-pixel-online">● CORE ONLINE</span>
+        <span className={sseConnected ? 'text-pixel-online' : 'text-pixel-muted'}>
+          {sseConnected ? '● SSE LIVE' : '● OFFLINE'}
+        </span>
       </div>
       <div className="flex-1 overflow-y-auto text-pixel-muted space-y-1 select-text">
         <p className="text-pixel-info">[SYSTEM] Initializing Kernel Command Bridge...</p>

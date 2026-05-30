@@ -7,6 +7,7 @@ import {
   useEdgesState,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import clsx from 'clsx';
 import { useAgentStore } from '../store/useAgentStore';
 import { TaskNode } from './flow/TaskNode';
 import { AgentNode } from './flow/AgentNode';
@@ -24,7 +25,7 @@ const edgeTypes = {
 };
 
 export function MainStage() {
-  const { nodes: storeNodes, edges: storeEdges, simulateEventStream, isStreaming } = useAgentStore();
+  const { nodes: storeNodes, edges: storeEdges, connectSSE, disconnectSSE, isStreaming, sseConnected } = useAgentStore();
 
   const [nodes, , onNodesChange] = useNodesState(storeNodes);
   const [edges, , onEdgesChange] = useEdgesState(storeEdges);
@@ -33,6 +34,14 @@ export function MainStage() {
     setTimeout(() => instance.fitView(), 100);
   }, []);
 
+  const handleToggle = () => {
+    if (isStreaming || sseConnected) {
+      disconnectSSE();
+    } else {
+      connectSSE();
+    }
+  };
+
   return (
     <div className="w-full h-full relative overflow-hidden bg-pixel-bg">
       <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
@@ -40,12 +49,19 @@ export function MainStage() {
           STAGE MAP
         </div>
         <button
-          onClick={simulateEventStream}
-          disabled={isStreaming}
-          className="pixel-button font-pixel text-[9px] px-3 py-1 disabled:opacity-30 disabled:cursor-not-allowed"
+          onClick={handleToggle}
+          className={clsx(
+            'pixel-button font-pixel text-[9px] px-3 py-1',
+            isStreaming && 'border-pixel-online/30',
+          )}
         >
-          {isStreaming ? 'STREAMING...' : 'RUN SIM'}
+          {isStreaming ? 'DISCONNECT' : 'CONNECT SSE'}
         </button>
+        {sseConnected && (
+          <span className="glass-panel px-2 py-1 font-pixel text-[9px] text-pixel-online">
+            LIVE
+          </span>
+        )}
       </div>
 
       <ReactFlow
