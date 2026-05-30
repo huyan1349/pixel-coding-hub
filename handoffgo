@@ -1,0 +1,21 @@
+# Handoffgo
+
+## 已完成
+- GitHub 仓库创建: https://github.com/huyan1349/pixel-coding-hub (Public)
+- 本地 git 初始化 + 首次 push 到 main
+- 分支保护规则: main 分支禁止直接 push，必须通过 PR
+- 合并策略: 仅允许 Squash Merge（已禁用 Merge Commit 和 Rebase Merge）
+- PR 合并后自动删除分支
+- Git 全局代理已配置: socks5://127.0.0.1:7897
+- gh CLI 认证: huyan1349 (需代理 ALL_PROXY=socks5h://127.0.0.1:7897)
+
+## Push 规范
+- 分支命名: feat/xxx, fix/xxx, refactor/xxx, chore/xxx, docs/xxx
+- Commit 格式: Conventional Commits (feat:, fix:, chore: 等)
+- 所有改动走 feature branch → PR → Squash Merge → main
+- main 禁止直接 push
+
+## 未完成
+- 项目代码开发（Pixel Coding Hub 前端原型）
+- .gitignore 文件
+- CI/CD 配置
