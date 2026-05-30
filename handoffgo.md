@@ -43,12 +43,21 @@
 - PR #14 `refactor/glass-bw-components`: StatusBadge(1.5px莫兰迪圆点无光晕)、PixelAvatar(莫兰迪SVG图案)、AgentCard(纯毛玻璃hover微亮)、TopBar(毛玻璃+像素字体仅logo)
 - PR #15 `refactor/glass-bw-layout`: AppShell(bg-white/[0.02] backdrop-blur-md)、MainStage(删除网格背景→纯#0a0a0a)、App.tsx(border-white/[0.08]+text-neutral-400)
 
-### 五、验证
+### 五、Milestone 2 + M3预研 + 设置面板（1个功能分支）
 
-- TypeScript 类型检查通过
-- Production build 通过 (882ms)
+- PR #18 `feat/milestone2-reactflow`:
+  - ✅ 战役1: @xyflow/react v12接入, TaskNode/AgentNode/InputNode(毛玻璃+4x4方形Handle), MainStage铺满ReactFlow
+  - ✅ 战役2: FlowEdge自定义边(静止stroke-neutral-800, 运行#84a59d莫兰迪绿), 4节点图谱数据(Input→Task→Agent→Task)
+  - ✅ 战役3: simulateEventStream() SSE事件队列(8事件逐个触发), 节点状态联动Edge动画, Agent节点联动AgentCard
+  - ✅ 战役4: SettingsPanel毛玻璃覆盖层(3个API Key密码输入框), v0.2.0-alpha版本号(Press Start 2P text-[9px])
+  - ✅ pixel.css: React Flow Handle/Controls/Attribution全局覆盖样式
+
+### 六、验证
+
+- TypeScript 类型检查通过 (零错误)
+- Production build 通过 (1.36s)
 - Dev server 运行正常
-- 全局扫描: 零残留旧色值(#1e293b/#0f172a)、零发光阴影、零网格背景
+- B/W/G 规范零违规: 无发光阴影、无旧色值、无网格背景
 
 ## 当前设计规范（5条铁律）
 
@@ -56,27 +65,33 @@
 2. **Glassmorphism Core**: bg-white/[0.02] backdrop-blur-md border-white/[0.08]，禁止任何发光阴影
 3. **Morandi Accents**: online=#84a59d, working=#c2b280, error=#b56576
 4. **Pixel as Accents**: Press Start 2P 仅用于 text-[9px] 小标签，90%文本用 system-ui/JetBrains Mono
-5. **Elegant Flow**: React Flow 连线 stroke-neutral-800，Handle 4x4px 纯色方块（待M2实现）
+5. **Elegant Flow**: React Flow 连线 stroke-neutral-800(静止)/#84a59d(运行)，Handle 4x4px 方形纯色方块
 
 ## 当前文件结构
 
 ```
 src/
-  App.tsx                    # 总入口，组装 sidebar + main + bottom
+  App.tsx                    # 总入口，组装 sidebar + main + bottom + SettingsPanel
   main.tsx                   # React 挂载
   vite-env.d.ts
-  types/agent.ts             # AgentStatus + Agent 类型
-  store/useAgentStore.ts     # Zustand store + mock 数据
+  types/agent.ts             # AgentStatus + TaskStatus + Agent + FlowNodeData + SSEEvent
+  store/useAgentStore.ts     # Zustand store + 图谱数据 + SSE模拟 + 事件日志
   components/
     AppShell.tsx             # 12列Grid骨架（毛玻璃侧栏+底栏）
     TopBar.tsx               # 顶部导航（毛玻璃+像素logo）
-    MainStage.tsx            # 中央画布（纯黑底+占位）
+    MainStage.tsx            # ReactFlow 画布（纯黑底+节点图谱+RUN SIM按钮）
     AgentCard.tsx            # Agent卡片（毛玻璃+微亮hover）
     StatusBadge.tsx          # 状态灯（莫兰迪圆点）
     PixelAvatar.tsx          # SVG像素头像（莫兰迪配色）
+    SettingsPanel.tsx        # 毛玻璃设置覆盖层（API Key + v0.2.0-alpha）
+    flow/
+      TaskNode.tsx           # 任务节点（毛玻璃+4x4方形Handle）
+      AgentNode.tsx          # Agent节点（毛玻璃+PixelAvatar+4x4方形Handle）
+      InputNode.tsx          # 输入节点（毛玻璃+4x4方形Handle）
+      FlowEdge.tsx           # 自定义边（SmoothStep+莫兰迪动画色）
   styles/
     globals.css              # Tailwind v4 @theme 令牌（B/W/G+莫兰迪）
-    pixel.css                # glass-panel / pixel-button / 滚动条
+    pixel.css                # glass-panel / pixel-button / React Flow覆盖 / 滚动条
 ```
 
 ## Push 规范（必须遵守）
@@ -89,14 +104,15 @@ src/
 
 ## 当前状态
 
-- 当前分支: `feat/milestone2-reactflow`（已创建，准备开始 M2 开发）
-- main 最新: PR #16 (c174488)
+- 版本: v0.2.0-alpha
+- main 最新: PR #18 (eb8f377)
+- 包管理: pnpm
 
 ## 未完成
 
-- Milestone 2: React Flow 协作可视化（节点图、任务流转、连线动画、4x4px Handle）
-- Milestone 3: Mock 后端 + WebSocket/SSE 事件流
-- 设置页面 + 版本号管理（规则1要求每次功能写入设置页）
+- Milestone 3: 真实 WebSocket/SSE 后端接入（当前为模拟队列）
+- 更多 Agent 节点（Trae, Claude Code）接入图谱
+- 设置页 API Key 持久化（localStorage/加密存储）
 - CI/CD 配置
 - 真实 CLI 命令桥接入
 - 桌面化封装 (Tauri)
