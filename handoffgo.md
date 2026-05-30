@@ -7,6 +7,13 @@
 **Pixel Coding Hub** — 像素风多 Agent 协作编程工作台
 仓库: https://github.com/huyan1349/pixel-coding-hub (Public)
 
+## ⚠️ 分支纪律（最高优先级）
+
+- **写任何代码前，先 `git branch` 确认当前在 feat/refactor 分支上！绝不在 main 上写代码！**
+- 合并完 PR 后立刻切到新功能分支，不要停留在 main
+- 流程: feature branch → PR → Squash Merge → main
+- main 禁止直接 push
+
 ## 已完成全部任务
 
 ### 一、GitHub 仓库与 Git 规范建立
@@ -79,6 +86,11 @@ src/
 - 流程: feature branch → PR → Squash Merge → main
 - main 禁止直接 push
 - 每完成一个功能模块必须 push + PR + Merge
+
+## 当前状态
+
+- 当前分支: `feat/milestone2-reactflow`（已创建，准备开始 M2 开发）
+- main 最新: PR #16 (c174488)
 
 ## 未完成
 
