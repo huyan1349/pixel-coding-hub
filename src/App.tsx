@@ -21,7 +21,7 @@ export default function App() {
 
   const renderTerminal = () => (
     <div className="w-full h-full p-3 font-mono text-xs flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between text-pixel-muted border-b border-white/10 pb-1 mb-2 text-[11px]">
+      <div className="flex items-center justify-between text-neutral-400 border-b border-white/[0.08] pb-1 mb-2 text-[11px]">
         <span>STREAM LOG // AUDIT_LOGGER</span>
         <span className="text-pixel-online">● CORE ONLINE</span>
       </div>
