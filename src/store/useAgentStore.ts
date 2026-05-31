@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { Agent, AgentStatus, SSEEvent, TaskStatus, KeyStatus, ProcessTelemetry, CloudTelemetry, ClaudeCodeTelemetry, TraeTelemetry } from '../types/agent';
 import type { Node, Edge } from '@xyflow/react';
 
-const BRIDGE_URL = 'http://localhost:4001';
+const BRIDGE_URL = import.meta.env.DEV ? '' : 'http://localhost:4001';
 
 const initialNodes: Node[] = [
   {
