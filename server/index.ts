@@ -4,11 +4,19 @@ import { loadEnvConfig, getCoordinatorKey, getCoordinatorBaseUrl, getCoordinator
 import { spawnClaude, killAllClaudeProcesses, isClaudeInstalled } from './claude-bridge.js';
 import { detectTraeStatus, startFileWatcher, stopFileWatcher, getRecentChanges, readTraeAIConversations, cleanupTraeBridge } from './trae-bridge.js';
 import { coordinatorAnalyze, type CoordinatorAction } from './coordinator-bridge.js';
+import { getProcessTelemetry, getCloudTelemetry, getSystemMemory } from './telemetry.js';
 
 const app = express();
 const PORT = 4001;
 
 const envConfig = loadEnvConfig();
+
+let codexTokenCount = 0;
+let codexLastRequestTime: number | null = null;
+let codexPhase = 'Idle';
+let coordinatorTokenCount = 0;
+let coordinatorLastRequestTime: number | null = null;
+let coordinatorPhase = 'Idle';
 
 app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'],
@@ -35,13 +43,34 @@ app.get('/api/agents/status', async (_req, res) => {
   const claudeInstalled = isClaudeInstalled();
   const hasDeepseekKey = !!envConfig.deepseekApiKey;
   const hasAnthropicKey = !!envConfig.anthropicApiKey;
+  const sysMem = getSystemMemory();
+
+  const traeTelemetry = getProcessTelemetry(traeStatus.pid);
+  if (traeStatus.aiActive) {
+    traeTelemetry.activeFile = traeStatus.workspaceDir
+      ? traeStatus.workspaceDir.split('/').pop() || '—'
+      : traeTelemetry.activeFile;
+  }
+
+  let claudePid: number | null = null;
+  try {
+    const { execSync } = await import('child_process');
+    const claudePs = execSync('pgrep -f "claude.*--output-format" 2>/dev/null', { encoding: 'utf-8' }).trim();
+    if (claudePs) claudePid = parseInt(claudePs.split('\n')[0], 10);
+  } catch { /* no claude process */ }
+  const claudeTelemetry = getProcessTelemetry(claudePid);
+
+  const codexTelemetry = getCloudTelemetry(codexLastRequestTime, codexTokenCount, codexPhase);
+  const coordinatorTelemetry = getCloudTelemetry(coordinatorLastRequestTime, coordinatorTokenCount, coordinatorPhase);
 
   res.json({
     claude: {
       available: claudeInstalled && hasAnthropicKey,
       status: claudeInstalled ? (hasAnthropicKey ? 'online' : 'unconfigured') : 'offline',
-      backend: 'DeepSeek API via ANTHROPIC_BASE_URL',
+      backend: 'DeepSeek API',
       model: envConfig.anthropicModel || 'deepseek-v4-pro',
+      telemetry: claudeTelemetry,
+      telemetryType: 'process',
     },
     trae: {
       available: traeStatus.running,
@@ -50,17 +79,34 @@ app.get('/api/agents/status', async (_req, res) => {
       workspaceDir: traeStatus.workspaceDir,
       recentFiles: traeStatus.recentFiles,
       aiActive: traeStatus.aiActive,
+      telemetry: traeTelemetry,
+      telemetryType: 'process',
     },
     codex: {
       available: hasDeepseekKey,
       status: hasDeepseekKey ? 'online' : 'unconfigured',
       backend: 'DeepSeek API',
+      telemetry: codexTelemetry,
+      telemetryType: 'cloud',
     },
     coordinator: {
       available: !!(hasDeepseekKey || hasAnthropicKey),
       status: (hasDeepseekKey || hasAnthropicKey) ? 'online' : 'offline',
       backend: 'DeepSeek API',
       model: getCoordinatorModel(envConfig),
+      telemetry: coordinatorTelemetry,
+      telemetryType: 'cloud',
+    },
+    cursor: {
+      available: false,
+      status: 'offline',
+      backend: 'Reserved',
+      telemetry: { pid: null, cpu: '—', ram: '—', uptime: '—', activeFile: '—', threads: 0 },
+      telemetryType: 'process',
+    },
+    system: {
+      memory: sysMem,
+      uptime: process.uptime(),
     },
   });
 });
@@ -152,6 +198,8 @@ app.post('/api/dispatch', async (req, res) => {
     const coordinatorModel = getCoordinatorModel(envConfig);
 
     if (targetAgents.includes('coordinator') && coordinatorKey) {
+      coordinatorPhase = 'Analyzing';
+      coordinatorLastRequestTime = Date.now();
       send('task-arch', 'running', '[COORDINATOR] Analyzing task and planning agent assignments...');
       const agentOutputs: Record<string, string> = {};
 
@@ -160,10 +208,14 @@ app.post('/api/dispatch', async (req, res) => {
         coordinatorKey,
         coordinatorBaseUrl,
         coordinatorModel,
-        (chunk) => send('task-arch', 'running', `[COORDINATOR] ${chunk}`),
+        (chunk) => {
+          coordinatorTokenCount += chunk.length;
+          send('task-arch', 'running', `[COORDINATOR] ${chunk}`);
+        },
         agentOutputs,
       );
 
+      coordinatorPhase = 'Dispatched';
       send('task-arch', 'done', '[COORDINATOR] Analysis complete');
 
       if (coordinatorResult.actions && coordinatorResult.actions.length > 0) {
@@ -180,6 +232,8 @@ app.post('/api/dispatch', async (req, res) => {
     const parallelPromises: Promise<void>[] = [];
 
     if (targetAgents.includes('codex') && envConfig.deepseekApiKey) {
+      codexPhase = 'AST Parsing';
+      codexLastRequestTime = Date.now();
       send('agent-codex', 'running', '[CODEX] Starting code generation via DeepSeek API...');
 
       const codexPromise = (async () => {
@@ -189,12 +243,18 @@ app.post('/api/dispatch', async (req, res) => {
           await streamCodex(
             prompt,
             envConfig.deepseekApiKey,
-            (chunk) => send('agent-codex', 'running', `[CODEX] ${chunk}`),
+            (chunk) => {
+              codexTokenCount += chunk.length;
+              if (codexPhase === 'AST Parsing') codexPhase = 'Code Generation';
+              send('agent-codex', 'running', `[CODEX] ${chunk}`);
+            },
             dsBaseUrl,
           );
+          codexPhase = 'Complete';
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           send('agent-codex', 'running', `[CODEX] Error: ${msg}`);
+          codexPhase = 'Error';
         }
         send('agent-codex', 'done', '[CODEX] Code generation complete ✓');
       })();
@@ -264,6 +324,8 @@ app.post('/api/dispatch', async (req, res) => {
     }
 
     if (coordinatorKey) {
+      coordinatorPhase = 'Synthesizing';
+      coordinatorLastRequestTime = Date.now();
       send('task-done', 'running', '[COORDINATOR] Final synthesis...');
       try {
         await coordinatorAnalyze(
@@ -271,10 +333,15 @@ app.post('/api/dispatch', async (req, res) => {
           coordinatorKey,
           coordinatorBaseUrl,
           coordinatorModel,
-          (chunk) => send('task-done', 'running', `[SYNTHESIS] ${chunk}`),
+          (chunk) => {
+            coordinatorTokenCount += chunk.length;
+            send('task-done', 'running', `[SYNTHESIS] ${chunk}`);
+          },
         );
+        coordinatorPhase = 'Idle';
       } catch {
         send('task-done', 'running', '[SYNTHESIS] Final synthesis failed');
+        coordinatorPhase = 'Error';
       }
     }
 
@@ -289,6 +356,7 @@ app.post('/api/dispatch', async (req, res) => {
 });
 
 app.get('/api/health', (_req, res) => {
+  const sysMem = getSystemMemory();
   res.json({
     status: 'ok',
     uptime: process.uptime(),
@@ -298,6 +366,7 @@ app.get('/api/health', (_req, res) => {
       anthropic: !!envConfig.anthropicApiKey,
     },
     claudeInstalled: isClaudeInstalled(),
+    system: { memory: sysMem },
   });
 });
 
@@ -315,7 +384,7 @@ process.on('SIGTERM', () => {
 
 app.listen(PORT, () => {
   console.log(`[Pixel Hub Bridge] Running on http://localhost:${PORT}`);
-  console.log(`[Pixel Hub Bridge] Mode: MONITOR + COORDINATE`);
+  console.log(`[Pixel Hub Bridge] Mode: MONITOR + COORDINATE + TELEMETRY`);
   console.log(`[Pixel Hub Bridge] DeepSeek Key: ${envConfig.deepseekApiKey ? '✓' : '✗'}`);
   console.log(`[Pixel Hub Bridge] Anthropic Key: ${envConfig.anthropicApiKey ? '✓' : '✗'}`);
   console.log(`[Pixel Hub Bridge] Claude CLI: ${isClaudeInstalled() ? '✓' : '✗'}`);

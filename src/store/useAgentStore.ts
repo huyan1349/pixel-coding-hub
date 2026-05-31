@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Agent, AgentStatus, SSEEvent, TaskStatus, KeyStatus } from '../types/agent';
+import type { Agent, AgentStatus, SSEEvent, TaskStatus, KeyStatus, ProcessTelemetry, CloudTelemetry } from '../types/agent';
 import type { Node, Edge } from '@xyflow/react';
 
 const BRIDGE_URL = 'http://localhost:4001';
@@ -200,6 +200,8 @@ export const useAgentStore = create<AgentState>()(
                 pid: info.pid ?? a.pid,
                 workspaceDir: info.workspaceDir ?? a.workspaceDir,
                 aiActive: info.aiActive ?? a.aiActive,
+                telemetry: info.telemetry as ProcessTelemetry | CloudTelemetry | undefined,
+                telemetryType: info.telemetryType as 'process' | 'cloud' | undefined,
               };
             }),
           }));

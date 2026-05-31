@@ -10,6 +10,23 @@ export type AgentStatus =
 
 export type TaskStatus = 'todo' | 'running' | 'done' | 'error';
 
+export interface ProcessTelemetry {
+  pid: number | null;
+  cpu: string;
+  ram: string;
+  uptime: string;
+  activeFile: string;
+  threads: number;
+}
+
+export interface CloudTelemetry {
+  latency: string;
+  tokens: number;
+  phase: string;
+  load: number;
+  requests: number;
+}
+
 export interface Agent {
   id: string;
   name: string;
@@ -24,6 +41,8 @@ export interface Agent {
   workspaceDir?: string | null;
   aiActive?: boolean;
   logs: string[];
+  telemetry?: ProcessTelemetry | CloudTelemetry;
+  telemetryType?: 'process' | 'cloud';
 }
 
 export interface KeyStatus {
