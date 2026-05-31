@@ -5,14 +5,15 @@ export type AgentStatus =
   | 'online'
   | 'working'
   | 'waiting'
-  | 'error';
+  | 'error'
+  | 'syncing';
 
 export type TaskStatus = 'todo' | 'running' | 'done' | 'error';
 
 export interface Agent {
   id: string;
   name: string;
-  kind: 'codex' | 'trae' | 'claude-code-cli' | 'coordinator' | 'custom';
+  kind: 'codex' | 'trae' | 'claude-code-cli' | 'coordinator' | 'cursor' | 'custom';
   status: AgentStatus;
   capabilities: string[];
   avatarSeed: string;
@@ -22,6 +23,7 @@ export interface Agent {
   pid?: number | null;
   workspaceDir?: string | null;
   aiActive?: boolean;
+  logs: string[];
 }
 
 export interface KeyStatus {

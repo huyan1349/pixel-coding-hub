@@ -1,18 +1,26 @@
 import type { ReactNode } from 'react';
 import { TopBar } from './TopBar';
 
-export function AppShell({ sidebar, main, bottom }: { sidebar: ReactNode; main: ReactNode; bottom: ReactNode }) {
+export function AppShell({
+  left,
+  right,
+  onSettings,
+}: {
+  left: ReactNode;
+  right: ReactNode;
+  onSettings?: () => void;
+}) {
   return (
     <div className="w-screen h-screen bg-pixel-bg text-pixel-text flex flex-col overflow-hidden select-none">
-      <TopBar />
-      <div className="flex-1 grid grid-cols-12 overflow-hidden">
-        <aside className="col-span-12 md:col-span-3 border-r-0 md:border-r border-white/[0.08] bg-white/[0.02] backdrop-blur-md p-3 overflow-y-auto">
-          {sidebar}
-        </aside>
-        <main className="col-span-12 md:col-span-9 flex flex-col overflow-hidden bg-pixel-bg">
-          <div className="flex-1 overflow-hidden relative">{main}</div>
-          <div className="h-48 border-t border-white/[0.08] bg-white/[0.02] backdrop-blur-md">{bottom}</div>
-        </main>
+      <TopBar onSettings={onSettings} />
+      <div className="flex-1 flex overflow-hidden">
+        <div className="w-[65%] min-w-0 overflow-hidden relative">
+          {left}
+        </div>
+        <div className="w-px bg-white/[0.10] backdrop-blur-md flex-shrink-0" />
+        <div className="w-[35%] min-w-0 overflow-hidden">
+          {right}
+        </div>
       </div>
     </div>
   );
