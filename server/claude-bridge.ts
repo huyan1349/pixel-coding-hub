@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'child_process';
+import { spawn, execSync, type ChildProcess } from 'child_process';
 
 interface ClaudeBridgeResult {
   output: string;
@@ -9,11 +9,16 @@ const activeProcesses = new Set<ChildProcess>();
 
 export function spawnClaude(
   prompt: string,
-  apiKey: string,
   onChunk: (text: string) => void,
 ): Promise<ClaudeBridgeResult> {
   return new Promise((resolve, reject) => {
-    const env = { ...process.env, ANTHROPIC_API_KEY: apiKey };
+    const env = {
+      ...process.env,
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
+      ANTHROPIC_BASE_URL: process.env.ANTHROPIC_BASE_URL || '',
+      ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL || '',
+      CLAUDE_CODE_SUBAGENT_MODEL: process.env.CLAUDE_CODE_SUBAGENT_MODEL || '',
+    };
 
     const args = ['-p', prompt, '--output-format', 'stream-json', '--verbose'];
 
@@ -44,7 +49,7 @@ export function spawnClaude(
               }
             }
           } else if (parsed.type === 'result') {
-            onChunk('[REVIEW COMPLETE]');
+            onChunk('[COMPLETE]');
           }
         } catch {
           onChunk(text.trim());
@@ -53,7 +58,10 @@ export function spawnClaude(
     });
 
     proc.stderr.on('data', (data: Buffer) => {
-      onChunk(`[stderr] ${data.toString().trim()}`);
+      const text = data.toString().trim();
+      if (text && !text.includes('Warning') && !text.includes('Deprecation')) {
+        onChunk(`[stderr] ${text}`);
+      }
     });
 
     proc.on('close', (code) => {
@@ -72,8 +80,17 @@ export function spawnClaude(
         activeProcesses.delete(proc);
         resolve({ output: output || '[TIMEOUT]', success: false });
       }
-    }, 60000);
+    }, 120000);
   });
+}
+
+export function isClaudeInstalled(): boolean {
+  try {
+    execSync('which claude', { stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function killAllClaudeProcesses(): void {

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -25,20 +25,29 @@ const edgeTypes = {
 };
 
 export function MainStage() {
-  const { nodes: storeNodes, edges: storeEdges, connectSSE, disconnectSSE, isStreaming, sseConnected } = useAgentStore();
+  const {
+    nodes: storeNodes, edges: storeEdges,
+    dispatchTask, disconnectSSE, isStreaming, sseConnected,
+  } = useAgentStore();
 
   const [nodes, , onNodesChange] = useNodesState(storeNodes);
   const [edges, , onEdgesChange] = useEdgesState(storeEdges);
+  const [prompt, setPrompt] = useState('');
 
   const onInit = useCallback((instance: { fitView: () => void }) => {
     setTimeout(() => instance.fitView(), 100);
   }, []);
 
-  const handleToggle = () => {
-    if (isStreaming || sseConnected) {
-      disconnectSSE();
-    } else {
-      connectSSE();
+  const handleDispatch = () => {
+    if (!prompt.trim()) return;
+    dispatchTask(prompt.trim());
+    setPrompt('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleDispatch();
     }
   };
 
@@ -48,20 +57,35 @@ export function MainStage() {
         <div className="glass-panel px-2 py-1 font-pixel text-[9px] text-pixel-muted">
           STAGE MAP
         </div>
-        <button
-          onClick={handleToggle}
-          className={clsx(
-            'pixel-button font-pixel text-[9px] px-3 py-1',
-            isStreaming && 'border-pixel-online/30',
-          )}
-        >
-          {isStreaming ? 'DISCONNECT' : 'CONNECT SSE'}
-        </button>
         {sseConnected && (
           <span className="glass-panel px-2 py-1 font-pixel text-[9px] text-pixel-online">
             LIVE
           </span>
         )}
+      </div>
+
+      <div className="absolute bottom-3 left-3 right-3 z-10">
+        <div className="glass-panel p-2 flex items-center gap-2">
+          <input
+            type="text"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="输入任务描述，Coordinator 将分析并分配给各 Agent..."
+            disabled={isStreaming}
+            className="flex-1 bg-transparent font-mono text-xs text-neutral-200 placeholder:text-neutral-600 focus:outline-none"
+          />
+          <button
+            onClick={isStreaming ? disconnectSSE : handleDispatch}
+            disabled={!isStreaming && !prompt.trim()}
+            className={clsx(
+              'pixel-button font-pixel text-[9px] px-3 py-1',
+              isStreaming && 'border-[#b56576]/30',
+            )}
+          >
+            {isStreaming ? 'STOP' : 'DISPATCH'}
+          </button>
+        </div>
       </div>
 
       <ReactFlow

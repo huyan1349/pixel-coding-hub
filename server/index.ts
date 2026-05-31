@@ -1,43 +1,132 @@
 import express from 'express';
 import cors from 'cors';
-import { createSession, getSession, deleteSession, cleanupStaleSessions } from './sessions.js';
-import { spawnClaude, killAllClaudeProcesses } from './claude-bridge.js';
-import { streamCodex } from './codex-bridge.js';
-import { writeGeneratedFile, tryOpenEditor, cleanupGeneratedFiles } from './trae-bridge.js';
+import { loadEnvConfig, getCoordinatorKey, getCoordinatorBaseUrl, getCoordinatorModel } from './env.js';
+import { spawnClaude, killAllClaudeProcesses, isClaudeInstalled } from './claude-bridge.js';
+import { detectTraeStatus, startFileWatcher, stopFileWatcher, getRecentChanges, readTraeAIConversations, cleanupTraeBridge } from './trae-bridge.js';
+import { coordinatorAnalyze, type CoordinatorAction } from './coordinator-bridge.js';
 
 const app = express();
 const PORT = 4001;
 
+const envConfig = loadEnvConfig();
+
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3002'],
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'],
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
 app.use(express.json());
 
-setInterval(cleanupStaleSessions, 300000);
-
-app.post('/api/session', (req, res) => {
-  const { keys } = req.body as { keys: Record<string, string> };
-  if (!keys || typeof keys !== 'object') {
-    res.status(400).json({ error: 'Missing keys' });
-    return;
-  }
-  const sessionId = createSession(keys);
-  res.json({ sessionId });
+app.get('/api/keys', (_req, res) => {
+  res.json({
+    keys: envConfig.keys,
+    claudeInstalled: isClaudeInstalled(),
+    envInfo: {
+      anthropicBaseUrl: envConfig.anthropicBaseUrl || '(default)',
+      anthropicModel: envConfig.anthropicModel || '(default)',
+      subagentModel: envConfig.subagentModel || '(default)',
+    },
+  });
 });
 
-app.delete('/api/session/:id', (req, res) => {
-  deleteSession(req.params.id);
+app.get('/api/agents/status', async (_req, res) => {
+  const traeStatus = await detectTraeStatus();
+  const claudeInstalled = isClaudeInstalled();
+  const hasDeepseekKey = !!envConfig.deepseekApiKey;
+  const hasAnthropicKey = !!envConfig.anthropicApiKey;
+
+  res.json({
+    claude: {
+      available: claudeInstalled && hasAnthropicKey,
+      status: claudeInstalled ? (hasAnthropicKey ? 'online' : 'unconfigured') : 'offline',
+      backend: 'DeepSeek API via ANTHROPIC_BASE_URL',
+      model: envConfig.anthropicModel || 'deepseek-v4-pro',
+    },
+    trae: {
+      available: traeStatus.running,
+      status: traeStatus.running ? (traeStatus.aiActive ? 'working' : 'online') : 'offline',
+      pid: traeStatus.pid,
+      workspaceDir: traeStatus.workspaceDir,
+      recentFiles: traeStatus.recentFiles,
+      aiActive: traeStatus.aiActive,
+    },
+    codex: {
+      available: hasDeepseekKey,
+      status: hasDeepseekKey ? 'online' : 'unconfigured',
+      backend: 'DeepSeek API',
+    },
+    coordinator: {
+      available: !!(hasDeepseekKey || hasAnthropicKey),
+      status: (hasDeepseekKey || hasAnthropicKey) ? 'online' : 'offline',
+      backend: 'DeepSeek API',
+      model: getCoordinatorModel(envConfig),
+    },
+  });
+});
+
+app.get('/api/trae/conversations', (_req, res) => {
+  const conversations = readTraeAIConversations();
+  res.json({ conversations });
+});
+
+app.get('/api/trae/changes', (_req, res) => {
+  const changes = getRecentChanges();
+  res.json({ changes });
+});
+
+app.post('/api/trae/watch', (req, res) => {
+  const { dir } = req.body as { dir: string };
+  if (!dir) {
+    res.status(400).json({ error: 'Missing dir' });
+    return;
+  }
+
+  startFileWatcher(dir, (file, event) => {
+    if (watchClients.size > 0) {
+      const data = JSON.stringify({ file, event, timestamp: Date.now() });
+      for (const client of watchClients) {
+        client.write(`data: ${data}\n\n`);
+      }
+    }
+  });
+
+  res.json({ ok: true, dir });
+});
+
+app.post('/api/trae/watch/stop', (_req, res) => {
+  stopFileWatcher();
   res.json({ ok: true });
 });
 
-app.get('/api/stream', async (req, res) => {
-  const sessionId = req.query.sessionId as string;
-  const session = sessionId ? getSession(sessionId) : undefined;
+const watchClients = new Set<express.Response>();
 
-  const keys = session?.keys ?? {};
+app.get('/api/trae/watch/stream', (req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+  });
+
+  watchClients.add(res);
+
+  req.on('close', () => {
+    watchClients.delete(res);
+  });
+});
+
+app.post('/api/dispatch', async (req, res) => {
+  const { prompt, agents: requestedAgents } = req.body as {
+    prompt: string;
+    agents?: string[];
+  };
+
+  if (!prompt) {
+    res.status(400).json({ error: 'Missing prompt' });
+    return;
+  }
+
+  const targetAgents = requestedAgents || ['coordinator', 'claude', 'trae', 'codex'];
 
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -49,118 +138,187 @@ app.get('/api/stream', async (req, res) => {
     res.write(`data: ${JSON.stringify({ nodeId, status, message, timestamp: Date.now() })}\n\n`);
   };
 
-  send('__system__', 'running', '[SSE] Stream established');
-
   const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
   try {
-    send('input-1', 'running', '[SSE] 需求接收中...');
-    await delay(1500);
-    send('input-1', 'done', '[SSE] 需求已接收');
+    send('__system__', 'running', '[DISPATCH] Task dispatch started');
 
-    send('task-arch', 'running', '[SSE] 架构拆解启动...');
-    await delay(2500);
-    send('task-arch', 'done', '[SSE] 拆解完成：逻辑层 + UI层');
+    send('input-1', 'running', `[DISPATCH] Receiving prompt: "${prompt.slice(0, 80)}..."`);
+    await delay(500);
+    send('input-1', 'done', '[DISPATCH] Prompt received');
 
-    const codexKey = keys.codex || '';
-    const traeKey = keys.trae || '';
-    const claudeKey = keys.claude || '';
+    const coordinatorKey = getCoordinatorKey(envConfig);
+    const coordinatorBaseUrl = getCoordinatorBaseUrl(envConfig);
+    const coordinatorModel = getCoordinatorModel(envConfig);
 
-    send('agent-codex', 'running', '[SSE] Codex 启动代码生成...');
+    if (targetAgents.includes('coordinator') && coordinatorKey) {
+      send('task-arch', 'running', '[COORDINATOR] Analyzing task and planning agent assignments...');
+      const agentOutputs: Record<string, string> = {};
 
-    const codexPromise = (async () => {
-      if (codexKey) {
-        await streamCodex(
-          'Generate a React component: a simple counter with increment and decrement buttons using TypeScript and Tailwind CSS.',
-          codexKey,
-          (chunk) => send('agent-codex', 'running', `[Codex] ${chunk}`),
-        );
-      } else {
-        await delay(3000);
-        send('agent-codex', 'running', '[Codex] (模拟) 生成 Counter 组件...');
-        await delay(2000);
+      const coordinatorResult = await coordinatorAnalyze(
+        prompt,
+        coordinatorKey,
+        coordinatorBaseUrl,
+        coordinatorModel,
+        (chunk) => send('task-arch', 'running', `[COORDINATOR] ${chunk}`),
+        agentOutputs,
+      );
+
+      send('task-arch', 'done', '[COORDINATOR] Analysis complete');
+
+      if (coordinatorResult.actions && coordinatorResult.actions.length > 0) {
+        for (const action of coordinatorResult.actions) {
+          send('task-arch', 'running', `[COORDINATOR] → Assign to ${action.agent}: ${action.task} (priority: ${action.priority})`);
+        }
       }
-      send('agent-codex', 'done', '[SSE] Codex 代码生成完成 ✓');
-    })();
+    } else {
+      send('task-arch', 'running', '[COORDINATOR] No coordinator key available, using default flow');
+      await delay(1000);
+      send('task-arch', 'done', '[COORDINATOR] Default flow selected');
+    }
 
-    send('agent-trae', 'running', '[SSE] Trae Solo 启动 UI 生成...');
+    const parallelPromises: Promise<void>[] = [];
 
-    const traePromise = (async () => {
-      const uiCode = traeKey
-        ? `// Generated by Trae Solo\nexport function GeneratedUI() {\n  return <div className="p-4 text-neutral-200">Trae UI Output</div>;\n}\n`
-        : `// Simulated Trae output\nexport function GeneratedUI() {\n  return <div className="p-4 text-neutral-200">Simulated UI</div>;\n}\n`;
+    if (targetAgents.includes('codex') && envConfig.deepseekApiKey) {
+      send('agent-codex', 'running', '[CODEX] Starting code generation via DeepSeek API...');
 
-      await delay(1500);
-      const filePath = writeGeneratedFile('GeneratedUI.tsx', uiCode);
-      send('agent-trae', 'running', `[Trae] Written: ${filePath}`);
+      const codexPromise = (async () => {
+        try {
+          const { streamCodex } = await import('./codex-bridge.js');
+          const dsBaseUrl = 'https://api.deepseek.com/v1';
+          await streamCodex(
+            prompt,
+            envConfig.deepseekApiKey,
+            (chunk) => send('agent-codex', 'running', `[CODEX] ${chunk}`),
+            dsBaseUrl,
+          );
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          send('agent-codex', 'running', `[CODEX] Error: ${msg}`);
+        }
+        send('agent-codex', 'done', '[CODEX] Code generation complete ✓');
+      })();
+      parallelPromises.push(codexPromise);
+    } else if (targetAgents.includes('codex')) {
+      send('agent-codex', 'running', '[CODEX] No DeepSeek API key, skipping...');
+      await delay(500);
+      send('agent-codex', 'done', '[CODEX] Skipped (no key)');
+    }
 
-      const result = await tryOpenEditor(process.cwd());
-      if (result.launched) {
-        send('agent-trae', 'running', `[Trae] Editor launched: ${result.editor}`);
-      } else {
-        send('agent-trae', 'running', '[Trae] No editor found, file saved to disk');
-      }
+    if (targetAgents.includes('trae')) {
+      send('agent-trae', 'running', '[TRAE] Detecting Trae Solo CN status...');
 
-      await delay(1500);
-      send('agent-trae', 'done', '[SSE] Trae Solo UI 生成完成 ✓');
-    })();
+      const traePromise = (async () => {
+        const status = await detectTraeStatus();
+        if (status.running) {
+          send('agent-trae', 'running', `[TRAE] Running (PID: ${status.pid})`);
+          if (status.aiActive) {
+            send('agent-trae', 'running', '[TRAE] AI agent is active');
+          }
+          if (status.workspaceDir) {
+            send('agent-trae', 'running', `[TRAE] Workspace: ${status.workspaceDir}`);
+          }
 
-    await Promise.all([codexPromise, traePromise]);
+          const conversations = readTraeAIConversations();
+          if (conversations.length > 0) {
+            send('agent-trae', 'running', `[TRAE] Found ${conversations.length} recent AI messages`);
+            for (const msg of conversations.slice(-3)) {
+              send('agent-trae', 'running', `[TRAE] [${msg.role}]: ${msg.content.slice(0, 100)}...`);
+            }
+          }
 
-    send('task-merge', 'running', '[SSE] 代码合并中...');
-    await delay(2000);
-    send('task-merge', 'done', '[SSE] 代码合并完成，0 冲突');
+          const changes = getRecentChanges();
+          if (changes.length > 0) {
+            send('agent-trae', 'running', `[TRAE] ${changes.length} recent file changes detected`);
+          }
+        } else {
+          send('agent-trae', 'running', '[TRAE] Not running');
+        }
+        send('agent-trae', 'done', '[TRAE] Status check complete ✓');
+      })();
+      parallelPromises.push(traePromise);
+    }
 
-    send('agent-claude', 'running', '[SSE] Claude Code 开始审查...');
-    if (claudeKey) {
+    await Promise.all(parallelPromises);
+
+    send('task-merge', 'running', '[MERGE] Collecting agent outputs...');
+    await delay(1000);
+    send('task-merge', 'done', '[MERGE] Outputs collected');
+
+    if (targetAgents.includes('claude') && envConfig.anthropicApiKey) {
+      send('agent-claude', 'running', '[CLAUDE] Spawning Claude Code (DeepSeek backend)...');
       try {
         await spawnClaude(
-          'Review the following code for bugs and suggest improvements. Be concise.',
-          claudeKey,
-          (chunk) => send('agent-claude', 'running', `[Claude] ${chunk}`),
+          prompt,
+          (chunk) => send('agent-claude', 'running', `[CLAUDE] ${chunk}`),
         );
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        send('agent-claude', 'running', `[Claude] Spawn failed: ${msg}`);
+        send('agent-claude', 'running', `[CLAUDE] Error: ${msg}`);
       }
-    } else {
-      await delay(2000);
-      send('agent-claude', 'running', '[Claude] (模拟) 审查代码中...');
-      await delay(1500);
+      send('agent-claude', 'done', '[CLAUDE] Review complete ✓');
+    } else if (targetAgents.includes('claude')) {
+      send('agent-claude', 'running', '[CLAUDE] No API key or not installed, skipping...');
+      await delay(500);
+      send('agent-claude', 'done', '[CLAUDE] Skipped');
     }
-    send('agent-claude', 'done', '[SSE] Claude Code 审查通过 ✓');
 
-    send('task-done', 'running', '[SSE] 交付物打包中...');
-    await delay(1000);
-    send('task-done', 'done', '[SSE] 🎯 全流程完成，交付物就绪');
+    if (coordinatorKey) {
+      send('task-done', 'running', '[COORDINATOR] Final synthesis...');
+      try {
+        await coordinatorAnalyze(
+          `Synthesize the following task results into a final summary. Original task: "${prompt}"`,
+          coordinatorKey,
+          coordinatorBaseUrl,
+          coordinatorModel,
+          (chunk) => send('task-done', 'running', `[SYNTHESIS] ${chunk}`),
+        );
+      } catch {
+        send('task-done', 'running', '[SYNTHESIS] Final synthesis failed');
+      }
+    }
 
-    send('__system__', 'done', '[SSE] Stream complete');
+    send('task-done', 'done', '[DISPATCH] 🎯 All agents complete');
+    send('__system__', 'done', '[DISPATCH] Stream complete');
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    send('__system__', 'error', `[SSE] Error: ${msg}`);
+    send('__system__', 'error', `[DISPATCH] Error: ${msg}`);
   } finally {
     res.end();
   }
 });
 
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', uptime: process.uptime() });
+  res.json({
+    status: 'ok',
+    uptime: process.uptime(),
+    mode: 'monitor-coordinate',
+    keysAvailable: {
+      deepseek: !!envConfig.deepseekApiKey,
+      anthropic: !!envConfig.anthropicApiKey,
+    },
+    claudeInstalled: isClaudeInstalled(),
+  });
 });
 
 process.on('SIGINT', () => {
   killAllClaudeProcesses();
-  cleanupGeneratedFiles();
+  cleanupTraeBridge();
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
   killAllClaudeProcesses();
-  cleanupGeneratedFiles();
+  cleanupTraeBridge();
   process.exit(0);
 });
 
 app.listen(PORT, () => {
-  console.log(`[Bridge Server] Running on http://localhost:${PORT}`);
-  console.log(`[Bridge Server] SSE endpoint: http://localhost:${PORT}/api/stream`);
-  console.log(`[Bridge Server] Session endpoint: POST http://localhost:${PORT}/api/session`);
+  console.log(`[Pixel Hub Bridge] Running on http://localhost:${PORT}`);
+  console.log(`[Pixel Hub Bridge] Mode: MONITOR + COORDINATE`);
+  console.log(`[Pixel Hub Bridge] DeepSeek Key: ${envConfig.deepseekApiKey ? '✓' : '✗'}`);
+  console.log(`[Pixel Hub Bridge] Anthropic Key: ${envConfig.anthropicApiKey ? '✓' : '✗'}`);
+  console.log(`[Pixel Hub Bridge] Claude CLI: ${isClaudeInstalled() ? '✓' : '✗'}`);
+  console.log(`[Pixel Hub Bridge] API Base URL: ${envConfig.anthropicBaseUrl || '(default)'}`);
+  console.log(`[Pixel Hub Bridge] Model: ${envConfig.anthropicModel || '(default)'}`);
 });

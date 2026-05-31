@@ -5,7 +5,7 @@ import { useAgentStore } from '../store/useAgentStore';
 import clsx from 'clsx';
 
 export function AgentCard({ agent }: { agent: Agent }) {
-  const { selectedAgentId, selectAgent, triggerConnectionMock } = useAgentStore();
+  const { selectedAgentId, selectAgent } = useAgentStore();
   const isSelected = selectedAgentId === agent.id;
 
   return (
@@ -22,20 +22,17 @@ export function AgentCard({ agent }: { agent: Agent }) {
         <PixelAvatar kind={agent.kind} />
         <div className="flex-1 min-w-0">
           <h3 className="font-mono text-sm font-medium text-neutral-200 truncate">{agent.name}</h3>
-          <StatusBadge status={agent.status} />
+          <div className="flex items-center gap-2">
+            <StatusBadge status={agent.status} />
+            {agent.backend && (
+              <span className="font-mono text-[9px] text-neutral-600">{agent.backend}</span>
+            )}
+          </div>
         </div>
-        <div>
-          {agent.status === 'unconfigured' || agent.status === 'offline' ? (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                triggerConnectionMock(agent.id);
-              }}
-              className="pixel-button text-[9px] font-pixel px-2 py-1"
-            >
-              CONN
-            </button>
-          ) : null}
+        <div className="flex items-center gap-1">
+          {agent.status === 'working' && (
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#84a59d] animate-pulse" />
+          )}
         </div>
       </div>
       <div className="mt-2 flex flex-wrap gap-1">
@@ -45,6 +42,11 @@ export function AgentCard({ agent }: { agent: Agent }) {
           </span>
         ))}
       </div>
+      {agent.workspaceDir && (
+        <div className="mt-1.5 font-mono text-[9px] text-neutral-600 truncate">
+          📂 {agent.workspaceDir}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Agent, AgentStatus, SSEEvent, TaskStatus } from '../types/agent';
+import type { Agent, AgentStatus, SSEEvent, TaskStatus, KeyStatus } from '../types/agent';
 import type { Node, Edge } from '@xyflow/react';
 
 const BRIDGE_URL = 'http://localhost:4001';
@@ -16,37 +16,37 @@ const initialNodes: Node[] = [
     id: 'task-arch',
     type: 'taskNode',
     position: { x: 320, y: 150 },
-    data: { label: '架构拆解', type: 'task', status: 'todo', description: '分析需求，拆解子任务' },
+    data: { label: '协调分析', type: 'task', status: 'todo', description: 'Coordinator 分析任务，分配子任务' },
   },
   {
     id: 'agent-codex',
     type: 'agentNode',
-    position: { x: 140, y: 290 },
+    position: { x: 100, y: 290 },
     data: { label: 'Codex', type: 'agent', status: 'todo', agentId: 'codex' },
   },
   {
     id: 'agent-trae',
     type: 'agentNode',
-    position: { x: 500, y: 290 },
+    position: { x: 320, y: 290 },
     data: { label: 'Trae Solo', type: 'agent', status: 'todo', agentId: 'trae' },
+  },
+  {
+    id: 'agent-claude',
+    type: 'agentNode',
+    position: { x: 540, y: 290 },
+    data: { label: 'Claude Code', type: 'agent', status: 'todo', agentId: 'claude' },
   },
   {
     id: 'task-merge',
     type: 'taskNode',
     position: { x: 320, y: 430 },
-    data: { label: '代码合并', type: 'task', status: 'todo', description: '合并 Codex + Trae 产出' },
-  },
-  {
-    id: 'agent-claude',
-    type: 'agentNode',
-    position: { x: 320, y: 560 },
-    data: { label: 'Claude Code', type: 'agent', status: 'todo', agentId: 'claude' },
+    data: { label: '结果汇总', type: 'task', status: 'todo', description: '汇总各 Agent 输出' },
   },
   {
     id: 'task-done',
     type: 'taskNode',
-    position: { x: 320, y: 690 },
-    data: { label: '交付完成', type: 'task', status: 'todo', description: '最终交付物就绪' },
+    position: { x: 320, y: 560 },
+    data: { label: '协调完成', type: 'task', status: 'todo', description: 'Coordinator 综合分析完成' },
   },
 ];
 
@@ -54,16 +54,18 @@ const initialEdges: Edge[] = [
   { id: 'e-input-arch', source: 'input-1', target: 'task-arch', type: 'flowEdge' },
   { id: 'e-arch-codex', source: 'task-arch', target: 'agent-codex', type: 'flowEdge' },
   { id: 'e-arch-trae', source: 'task-arch', target: 'agent-trae', type: 'flowEdge' },
+  { id: 'e-arch-claude', source: 'task-arch', target: 'agent-claude', type: 'flowEdge' },
   { id: 'e-codex-merge', source: 'agent-codex', target: 'task-merge', type: 'flowEdge' },
   { id: 'e-trae-merge', source: 'agent-trae', target: 'task-merge', type: 'flowEdge' },
-  { id: 'e-merge-claude', source: 'task-merge', target: 'agent-claude', type: 'flowEdge' },
-  { id: 'e-claude-done', source: 'agent-claude', target: 'task-done', type: 'flowEdge' },
+  { id: 'e-claude-merge', source: 'agent-claude', target: 'task-merge', type: 'flowEdge' },
+  { id: 'e-merge-done', source: 'task-merge', target: 'task-done', type: 'flowEdge' },
 ];
 
 const defaultAgents: Agent[] = [
-  { id: 'codex', name: 'Codex', kind: 'codex', status: 'online', capabilities: ['read_files', 'write_code'], avatarSeed: '101010', apiKey: '' },
-  { id: 'trae', name: 'Trae Solo', kind: 'trae', status: 'unconfigured', capabilities: ['ui_layout', 'components'], avatarSeed: '010101', apiKey: '' },
-  { id: 'claude', name: 'Claude Code', kind: 'claude-code-cli', status: 'working', capabilities: ['review', 'refactor', 'test'], avatarSeed: '111000', apiKey: '' },
+  { id: 'coordinator', name: 'Coordinator', kind: 'coordinator', status: 'offline', capabilities: ['analyze', 'dispatch', 'synthesize'], avatarSeed: 'coord01', apiKey: '', backend: 'DeepSeek API' },
+  { id: 'codex', name: 'Codex', kind: 'codex', status: 'offline', capabilities: ['code_gen', 'api_call'], avatarSeed: '101010', apiKey: '', backend: 'DeepSeek API' },
+  { id: 'trae', name: 'Trae Solo CN', kind: 'trae', status: 'offline', capabilities: ['monitor', 'file_watch', 'ai_read'], avatarSeed: '010101', apiKey: '' },
+  { id: 'claude', name: 'Claude Code', kind: 'claude-code-cli', status: 'offline', capabilities: ['review', 'refactor', 'analyze'], avatarSeed: '111000', apiKey: '', backend: 'DeepSeek API' },
 ];
 
 interface AgentState {
@@ -74,12 +76,16 @@ interface AgentState {
   eventLog: string[];
   isStreaming: boolean;
   sseConnected: boolean;
+  keysStatus: Record<string, KeyStatus>;
+  claudeInstalled: boolean;
+  envInfo: { anthropicBaseUrl: string; anthropicModel: string; subagentModel: string };
   selectAgent: (id: string) => void;
   updateAgentStatus: (id: string, status: AgentStatus) => void;
-  updateAgentApiKey: (id: string, apiKey: string) => void;
-  triggerConnectionMock: (id: string) => void;
+  updateAgentField: (id: string, field: string, value: unknown) => void;
   updateNodeStatus: (nodeId: string, status: TaskStatus) => void;
-  connectSSE: () => Promise<void>;
+  fetchKeysStatus: () => Promise<void>;
+  fetchAgentStatus: () => Promise<void>;
+  dispatchTask: (prompt: string, agents?: string[]) => Promise<void>;
   disconnectSSE: () => void;
   resetFlow: () => void;
   addEventLog: (message: string) => void;
@@ -97,6 +103,9 @@ export const useAgentStore = create<AgentState>()(
       eventLog: [],
       isStreaming: false,
       sseConnected: false,
+      keysStatus: {},
+      claudeInstalled: false,
+      envInfo: { anthropicBaseUrl: '', anthropicModel: '', subagentModel: '' },
 
       selectAgent: (id) => set({ selectedAgentId: id }),
 
@@ -105,17 +114,10 @@ export const useAgentStore = create<AgentState>()(
           agents: state.agents.map((a) => (a.id === id ? { ...a, status } : a)),
         })),
 
-      updateAgentApiKey: (id, apiKey) =>
+      updateAgentField: (id, field, value) =>
         set((state) => ({
-          agents: state.agents.map((a) => (a.id === id ? { ...a, apiKey } : a)),
+          agents: state.agents.map((a) => (a.id === id ? { ...a, [field]: value } : a)),
         })),
-
-      triggerConnectionMock: (id) => {
-        get().updateAgentStatus(id, 'connecting');
-        setTimeout(() => {
-          get().updateAgentStatus(id, 'online');
-        }, 1500);
-      },
 
       updateNodeStatus: (nodeId, status) =>
         set((state) => ({
@@ -138,50 +140,87 @@ export const useAgentStore = create<AgentState>()(
           }),
         })),
 
-      connectSSE: async () => {
-        const { isStreaming, sseConnected, agents } = get();
+      fetchKeysStatus: async () => {
+        try {
+          const res = await fetch(`${BRIDGE_URL}/api/keys`);
+          if (!res.ok) return;
+          const data = await res.json();
+          set({
+            keysStatus: data.keys,
+            claudeInstalled: data.claudeInstalled,
+            envInfo: data.envInfo,
+          });
+
+          const { keysStatus } = get();
+          const updatedAgents = get().agents.map((a) => {
+            const keyInfo = keysStatus[a.id];
+            if (keyInfo) {
+              return {
+                ...a,
+                status: keyInfo.available ? 'online' as AgentStatus : 'unconfigured' as AgentStatus,
+                apiKey: keyInfo.masked,
+              };
+            }
+            return a;
+          });
+          set({ agents: updatedAgents });
+        } catch {
+          // server not available
+        }
+      },
+
+      fetchAgentStatus: async () => {
+        try {
+          const res = await fetch(`${BRIDGE_URL}/api/agents/status`);
+          if (!res.ok) return;
+          const data = await res.json();
+
+          set((state) => ({
+            agents: state.agents.map((a) => {
+              const info = data[a.id];
+              if (!info) return a;
+              return {
+                ...a,
+                status: info.status as AgentStatus,
+                backend: info.backend || a.backend,
+                model: info.model || a.model,
+                pid: info.pid ?? a.pid,
+                workspaceDir: info.workspaceDir ?? a.workspaceDir,
+                aiActive: info.aiActive ?? a.aiActive,
+              };
+            }),
+          }));
+        } catch {
+          // server not available
+        }
+      },
+
+      dispatchTask: async (prompt, agents) => {
+        const { isStreaming, sseConnected } = get();
         if (isStreaming || sseConnected) return;
 
         set({ isStreaming: true, eventLog: [], sseConnected: false });
         get().resetFlow();
 
         try {
-          const keys: Record<string, string> = {};
-          agents.forEach((a) => {
-            if (a.apiKey) keys[a.id] = a.apiKey;
-          });
-
-          const sessionRes = await fetch(`${BRIDGE_URL}/api/session`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ keys }),
-          });
-
-          if (!sessionRes.ok) {
-            get().addEventLog('[SSE] Session creation failed');
-            set({ isStreaming: false });
-            return;
-          }
-
-          const { sessionId } = await sessionRes.json();
-          get().addEventLog('[SSE] Session established');
-
           const abortController = new AbortController();
           abortControllerRef = abortController;
 
-          const streamRes = await fetch(
-            `${BRIDGE_URL}/api/stream?sessionId=${sessionId}`,
-            { signal: abortController.signal },
-          );
+          const streamRes = await fetch(`${BRIDGE_URL}/api/dispatch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, agents }),
+            signal: abortController.signal,
+          });
 
           if (!streamRes.ok || !streamRes.body) {
-            get().addEventLog('[SSE] Stream connection failed');
+            get().addEventLog('[DISPATCH] Connection failed');
             set({ isStreaming: false });
             return;
           }
 
           set({ sseConnected: true });
-          get().addEventLog('[SSE] Connected to bridge server');
+          get().addEventLog('[DISPATCH] Connected to bridge server');
 
           const reader = streamRes.body.getReader();
           const decoder = new TextDecoder();
@@ -230,12 +269,10 @@ export const useAgentStore = create<AgentState>()(
           }
 
           set({ isStreaming: false, sseConnected: false });
-          get().addEventLog('[SSE] Stream ended');
-
-          await fetch(`${BRIDGE_URL}/api/session/${sessionId}`, { method: 'DELETE' }).catch(() => {});
+          get().addEventLog('[DISPATCH] Stream ended');
         } catch (err) {
           if ((err as Error).name !== 'AbortError') {
-            get().addEventLog('[SSE] Connection error');
+            get().addEventLog('[DISPATCH] Connection error');
           }
           set({ isStreaming: false, sseConnected: false });
         } finally {
@@ -271,21 +308,7 @@ export const useAgentStore = create<AgentState>()(
     }),
     {
       name: 'pixel-coding-hub-storage',
-      partialize: (state) => ({
-        agents: state.agents.map((a) => ({ id: a.id, apiKey: a.apiKey })),
-      }),
-      merge: (persisted, current) => {
-        const p = persisted as { agents?: { id: string; apiKey: string }[] } | null;
-        if (!p?.agents) return current;
-        const keyMap = new Map(p.agents.map((a) => [a.id, a.apiKey]));
-        return {
-          ...current,
-          agents: current.agents.map((a) => {
-            const savedKey = keyMap.get(a.id);
-            return savedKey !== undefined ? { ...a, apiKey: savedKey } : a;
-          }),
-        };
-      },
+      partialize: () => ({}),
     },
   ),
 );
