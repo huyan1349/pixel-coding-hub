@@ -1,8 +1,11 @@
 import { motion } from 'framer-motion';
 import { useAgentStore } from '../store/useAgentStore';
+import { usePreferences } from '../store/usePreferences';
+import { t } from '../i18n';
 
 export function LogsView() {
   const { agents, eventLog } = useAgentStore();
+  const { locale } = usePreferences();
 
   return (
     <motion.div
@@ -14,7 +17,7 @@ export function LogsView() {
       <div className="flex items-center gap-2.5">
         <div className="w-1.5 h-1.5 rounded-full bg-[#789ca4]" />
         <span className="text-[15px] font-semibold text-neutral-300 tracking-wide" style={{ fontFamily: '"Inter", system-ui, sans-serif' }}>
-          Event Logs
+          {t('eventLogs', locale)}
         </span>
       </div>
 
@@ -25,7 +28,7 @@ export function LogsView() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <div className="telemetry-label mb-2">Dispatch Events</div>
+          <div className="telemetry-label mb-2">{t('dispatchEvents', locale)}</div>
           <div className="space-y-0.5 max-h-40 overflow-y-auto">
             {eventLog.map((e, i) => (
               <div key={i} className="telemetry-value text-[11px] text-neutral-500">{e}</div>
@@ -47,7 +50,7 @@ export function LogsView() {
               <div className="flex items-center gap-2 mb-2">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: agent.status === 'working' ? '#c2b280' : agent.status === 'online' ? '#84a59d' : '#525252' }} />
                 <span className="text-[12px] font-medium text-neutral-300" style={{ fontFamily: '"Inter", system-ui, sans-serif' }}>{agent.name}</span>
-                <span className="telemetry-value text-[10px] text-neutral-600">{agent.logs.length} logs</span>
+                <span className="telemetry-value text-[10px] text-neutral-600">{agent.logs.length} {t('entries', locale)}</span>
               </div>
               <div className="space-y-0.5 max-h-32 overflow-y-auto">
                 {agent.logs.slice().reverse().map((log, i) => (
@@ -61,8 +64,8 @@ export function LogsView() {
 
       {agents.every(a => a.logs.length === 0) && eventLog.length === 0 && (
         <div className="glass-panel-inset p-8 text-center">
-          <div className="telemetry-label">No logs yet</div>
-          <div className="telemetry-value text-[10px] text-neutral-600 mt-1">Dispatch a task to see activity</div>
+          <div className="telemetry-label">{t('noLogs', locale)}</div>
+          <div className="telemetry-value text-[10px] text-neutral-600 mt-1">{t('dispatchHint', locale)}</div>
         </div>
       )}
     </motion.div>
