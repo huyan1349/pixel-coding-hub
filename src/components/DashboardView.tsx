@@ -94,7 +94,7 @@ function AgentDetailCard({ agent, index }: { agent: Agent; index: number }) {
       initial="hidden"
       animate="visible"
       whileHover={{ y: -4, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } }}
-      className={clsx('aero-card gradient-border shimmer p-5', isWorking && 'animate-breathe')}
+      className={clsx('aero-card gradient-border p-5', isWorking && 'animate-breathe')}
       style={{
         borderColor: isWorking ? color + '20' : undefined,
         borderTopColor: isWorking ? color + '35' : undefined,

@@ -1,6 +1,11 @@
 import { motion } from 'framer-motion';
+import { Sun, Moon, Languages } from 'lucide-react';
+import { usePreferences } from '../store/usePreferences';
+import { t } from '../i18n';
 
 export function TopBar() {
+  const { theme, setTheme, locale, setLocale } = usePreferences();
+
   return (
     <motion.div
       initial={{ y: -20, opacity: 0 }}
@@ -15,14 +20,28 @@ export function TopBar() {
           transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
         />
         <h1 className="text-[13px] font-medium tracking-wide text-neutral-200" style={{ fontFamily: '"Inter", system-ui, sans-serif' }}>
-          Pixel Coding Hub
+          {t('appTitle', locale)}
         </h1>
         <span className="font-pixel text-[7px] text-neutral-700">v0.6.0-alpha</span>
       </div>
       <div className="flex items-center gap-2">
         <div className="hidden md:flex items-center gap-1.5 text-[11px] bg-white/[0.02] border border-white/[0.04] rounded-lg px-2.5 py-1 text-neutral-600" style={{ fontFamily: '"Inter", system-ui, sans-serif', fontWeight: 300 }}>
-          <span>MONITOR + COORDINATE</span>
+          <span>{t('mode', locale)}</span>
         </div>
+        <button
+          onClick={() => setLocale(locale === 'zh' ? 'en' : 'zh')}
+          className="p-1.5 rounded-lg bg-white/[0.02] border border-white/[0.04] text-neutral-500 hover:text-neutral-300 hover:bg-white/[0.04] transition-all duration-300"
+          title={locale === 'zh' ? 'Switch to English' : '切换到中文'}
+        >
+          <Languages size={13} />
+        </button>
+        <button
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          className="p-1.5 rounded-lg bg-white/[0.02] border border-white/[0.04] text-neutral-500 hover:text-neutral-300 hover:bg-white/[0.04] transition-all duration-300"
+          title={theme === 'dark' ? t('lightMode', locale) : t('darkMode', locale)}
+        >
+          {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
+        </button>
       </div>
       <div className="glow-line absolute bottom-0 left-0 right-0" />
     </motion.div>

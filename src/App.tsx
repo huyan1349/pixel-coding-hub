@@ -7,6 +7,7 @@ import { DashboardView } from './components/DashboardView';
 import { LogsView } from './components/LogsView';
 import { SettingsPanel } from './components/SettingsPanel';
 import { useAgentStore } from './store/useAgentStore';
+import { usePreferences } from './store/usePreferences';
 
 const pageVariants = {
   enter: { opacity: 0, y: 12, scale: 0.98 },
@@ -16,8 +17,13 @@ const pageVariants = {
 
 export default function App() {
   const { fetchKeysStatus, fetchAgentStatus } = useAgentStore();
+  const { theme } = usePreferences();
   const [activeView, setActiveView] = useState<ViewId>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    document.body.className = `theme-${theme}`;
+  }, [theme]);
 
   useEffect(() => {
     fetchKeysStatus();
@@ -25,7 +31,7 @@ export default function App() {
 
     const interval = setInterval(() => {
       fetchAgentStatus();
-    }, 5000);
+    }, 15000);
 
     return () => clearInterval(interval);
   }, [fetchKeysStatus, fetchAgentStatus]);
@@ -65,7 +71,7 @@ export default function App() {
             initial="enter"
             animate="center"
             exit="exit"
-            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
           >
             {renderView()}
           </motion.div>

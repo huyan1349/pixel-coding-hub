@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
@@ -47,16 +47,52 @@ export interface TraeTelemetry extends ProcessTelemetry {
   sandboxSessions: number;
 }
 
-export function getProcessTelemetry(pid: number | null): ProcessTelemetry {
-  if (!pid) {
-    return { pid: null, cpu: '—', ram: '—', uptime: '—', activeFile: '—', threads: 0, totalCpu: '—', totalRam: '—', processCount: 0, subProcesses: [] };
+// ── Cache Layer ──────────────────────────────────────────
+const CACHE_TTL = 8_000; // 8 seconds
+
+interface CacheEntry<T> {
+  data: T;
+  ts: number;
+}
+
+const cache = new Map<string, CacheEntry<unknown>>();
+
+function getCached<T>(key: string): T | null {
+  const entry = cache.get(key);
+  if (entry && Date.now() - entry.ts < CACHE_TTL) {
+    return entry.data as T;
   }
+  cache.delete(key);
+  return null;
+}
+
+function setCache<T>(key: string, data: T): T {
+  cache.set(key, { data, ts: Date.now() });
+  return data;
+}
+
+// ── Async shell helper ──────────────────────────────────
+function execAsync(cmd: string, timeout = 3000): Promise<string> {
+  return new Promise((resolve) => {
+    exec(cmd, { encoding: 'utf-8', timeout }, (err, stdout) => {
+      resolve(err ? '' : (stdout || '').trim());
+    });
+  });
+}
+
+// ── Async telemetry functions ───────────────────────────
+
+export async function getProcessTelemetry(pid: number | null): Promise<ProcessTelemetry> {
+  const empty: ProcessTelemetry = { pid: null, cpu: '—', ram: '—', uptime: '—', activeFile: '—', threads: 0, totalCpu: '—', totalRam: '—', processCount: 0, subProcesses: [] };
+  if (!pid) return empty;
+
+  const cacheKey = `proc:${pid}`;
+  const cached = getCached<ProcessTelemetry>(cacheKey);
+  if (cached) return cached;
 
   try {
-    const psOutput = execSync(
-      `ps -p ${pid} -o '%cpu=,rss=,etime=' 2>/dev/null`,
-      { encoding: 'utf-8', timeout: 3000 },
-    ).trim();
+    const psOutput = await execAsync(`ps -p ${pid} -o '%cpu=,rss=,etime=' 2>/dev/null`, 3000);
+    if (!psOutput) return { ...empty, pid };
 
     const parts = psOutput.split(/\s+/).filter(Boolean);
     const cpu = parts[0] ? `${parseFloat(parts[0]).toFixed(1)}%` : '—';
@@ -65,34 +101,35 @@ export function getProcessTelemetry(pid: number | null): ProcessTelemetry {
     const uptime = parts[2] || '—';
 
     let activeFile = '—';
-    try {
-      const lsofOutput = execSync(
-        `lsof -p ${pid} -Fn 2>/dev/null | grep -E '\\.(tsx?|jsx?|py|rs|css|html)$' | head -1 | cut -c2-`,
-        { encoding: 'utf-8', timeout: 3000 },
-      ).trim();
-      if (lsofOutput) {
-        const segs = lsofOutput.split('/');
-        activeFile = segs[segs.length - 1] || lsofOutput;
-      }
-    } catch { /* lsof may fail */ }
+    const lsofOutput = await execAsync(
+      `lsof -p ${pid} -Fn 2>/dev/null | grep -E '\\.(tsx?|jsx?|py|rs|css|html)$' | head -1 | cut -c2-`,
+      3000,
+    );
+    if (lsofOutput) {
+      const segs = lsofOutput.split('/');
+      activeFile = segs[segs.length - 1] || lsofOutput;
+    }
 
-    return { pid, cpu, ram, uptime, activeFile, threads: 0, totalCpu: cpu, totalRam: ram, processCount: 1, subProcesses: [] };
+    const result: ProcessTelemetry = { pid, cpu, ram, uptime, activeFile, threads: 0, totalCpu: cpu, totalRam: ram, processCount: 1, subProcesses: [] };
+    return setCache(cacheKey, result);
   } catch {
-    return { pid, cpu: '—', ram: '—', uptime: '—', activeFile: '—', threads: 0, totalCpu: '—', totalRam: '—', processCount: 0, subProcesses: [] };
+    return { ...empty, pid };
   }
 }
 
-export function getMultiProcessTelemetry(mainPid: number, processName: string): ProcessTelemetry {
-  const mainTele = getProcessTelemetry(mainPid);
+export async function getMultiProcessTelemetry(mainPid: number, processName: string): Promise<ProcessTelemetry> {
+  const cacheKey = `multi:${mainPid}:${processName}`;
+  const cached = getCached<ProcessTelemetry>(cacheKey);
+  if (cached) return cached;
+
+  const mainTele = await getProcessTelemetry(mainPid);
 
   try {
-    const allPsOutput = execSync(
-      `ps aux | grep "${processName}" | grep -v grep`,
-      { encoding: 'utf-8', timeout: 5000 },
-    ).trim();
+    const allPsOutput = await execAsync(`ps aux | grep "${processName}" | grep -v grep`, 5000);
 
     if (!allPsOutput) {
-      return { ...mainTele, totalCpu: '—', totalRam: '—', processCount: 0, subProcesses: [] };
+      const result = { ...mainTele, totalCpu: '—', totalRam: '—', processCount: 0, subProcesses: [] };
+      return setCache(cacheKey, result);
     }
 
     const lines = allPsOutput.split('\n');
@@ -131,47 +168,45 @@ export function getMultiProcessTelemetry(mainPid: number, processName: string): 
       }
     }
 
-    return {
+    const result: ProcessTelemetry = {
       ...mainTele,
       totalCpu: `${totalCpuVal.toFixed(1)}%`,
       totalRam: formatBytes(totalRamVal),
       processCount: lines.length,
       subProcesses: subProcesses.slice(0, 6),
     };
+    return setCache(cacheKey, result);
   } catch {
     return { ...mainTele, totalCpu: mainTele.cpu, totalRam: mainTele.ram, processCount: 1, subProcesses: [] };
   }
 }
 
-export function getClaudeCodeTelemetry(): ClaudeCodeTelemetry {
+export async function getClaudeCodeTelemetry(): Promise<ClaudeCodeTelemetry> {
+  const cacheKey = 'claude-code';
+  const cached = getCached<ClaudeCodeTelemetry>(cacheKey);
+  if (cached) return cached;
+
   const homeDir = process.env.HOME || '/Users/huyan';
   let claudePid: number | null = null;
   let workingDir: string | null = null;
 
-  try {
-    const pgrepOutput = execSync(
-      `pgrep -x Claude 2>/dev/null`,
-      { encoding: 'utf-8', timeout: 3000 },
-    ).trim();
-    if (pgrepOutput) {
-      claudePid = parseInt(pgrepOutput.split('\n')[0], 10);
-    }
-  } catch { /* no claude process */ }
-
-  if (claudePid) {
-    try {
-      const cwdOutput = execSync(
-        `lsof -p ${claudePid} -Fn 2>/dev/null | grep '^n/' | grep -v '/\\.claude' | grep -v '/Library' | grep -v '/System' | tail -1 | cut -c2-`,
-        { encoding: 'utf-8', timeout: 3000 },
-      ).trim();
-      if (cwdOutput) {
-        const segs = cwdOutput.split('/');
-        workingDir = segs.slice(0, -1).join('/') || cwdOutput;
-      }
-    } catch { /* no cwd */ }
+  const pgrepOutput = await execAsync(`pgrep -x Claude 2>/dev/null`, 3000);
+  if (pgrepOutput) {
+    claudePid = parseInt(pgrepOutput.split('\n')[0], 10);
   }
 
-  const baseTele = claudePid ? getProcessTelemetry(claudePid) : getProcessTelemetry(null);
+  if (claudePid) {
+    const cwdOutput = await execAsync(
+      `lsof -p ${claudePid} -Fn 2>/dev/null | grep '^n/' | grep -v '/\\.claude' | grep -v '/Library' | grep -v '/System' | tail -1 | cut -c2-`,
+      3000,
+    );
+    if (cwdOutput) {
+      const segs = cwdOutput.split('/');
+      workingDir = segs.slice(0, -1).join('/') || cwdOutput;
+    }
+  }
+
+  const baseTele = await getProcessTelemetry(claudePid);
 
   let totalCost = '$0.00';
   let sessionCount = 0;
@@ -218,9 +253,7 @@ export function getClaudeCodeTelemetry(): ClaudeCodeTelemetry {
 
         if (sessionData.updatedAt) {
           const ago = Date.now() - sessionData.updatedAt;
-          lastActivity = ago < 60000 ? `${Math.floor(ago / 1000)}s ago` :
-                         ago < 3600000 ? `${Math.floor(ago / 60000)}m ago` :
-                         `${Math.floor(ago / 3600000)}h ago`;
+          lastActivity = formatAgo(ago);
         }
       }
     } catch { /* no session file */ }
@@ -240,33 +273,21 @@ export function getClaudeCodeTelemetry(): ClaudeCodeTelemetry {
             }
             if (lastEntry.timestamp) {
               const ago = Date.now() - lastEntry.timestamp;
-              lastActivity = ago < 60000 ? `${Math.floor(ago / 1000)}s ago` :
-                             ago < 3600000 ? `${Math.floor(ago / 60000)}m ago` :
-                             `${Math.floor(ago / 3600000)}h ago`;
+              lastActivity = formatAgo(ago);
             }
           } catch { /* skip */ }
         }
       }
     } catch { /* no history */ }
 
-    try {
-      const subPsOutput = execSync(
-        `pgrep -P ${claudePid} 2>/dev/null | wc -l`,
-        { encoding: 'utf-8', timeout: 3000 },
-      ).trim();
-      subProcessCount = parseInt(subPsOutput, 10) || 0;
-    } catch { /* no subs */ }
+    const subPsOutput = await execAsync(`pgrep -P ${claudePid} 2>/dev/null | wc -l`, 3000);
+    subProcessCount = parseInt(subPsOutput, 10) || 0;
 
-    try {
-      const shellSnapshots = execSync(
-        `ls /tmp/claude-*-cwd 2>/dev/null | wc -l`,
-        { encoding: 'utf-8', timeout: 3000 },
-      ).trim();
-      subProcessCount += parseInt(shellSnapshots, 10) || 0;
-    } catch { /* no snapshots */ }
+    const shellSnapshots = await execAsync(`ls /tmp/claude-*-cwd 2>/dev/null | wc -l`, 3000);
+    subProcessCount += parseInt(shellSnapshots, 10) || 0;
   }
 
-  return {
+  const result: ClaudeCodeTelemetry = {
     ...baseTele,
     totalCpu: baseTele.cpu,
     totalRam: baseTele.ram,
@@ -285,11 +306,16 @@ export function getClaudeCodeTelemetry(): ClaudeCodeTelemetry {
     version,
     sessionId,
   };
+  return setCache(cacheKey, result);
 }
 
-export function getTraeTelemetry(mainPid: number): TraeTelemetry {
+export async function getTraeTelemetry(mainPid: number): Promise<TraeTelemetry> {
+  const cacheKey = `trae:${mainPid}`;
+  const cached = getCached<TraeTelemetry>(cacheKey);
+  if (cached) return cached;
+
   const homeDir = process.env.HOME || '/Users/huyan';
-  const baseTele = getMultiProcessTelemetry(mainPid, 'TRAE SOLO CN');
+  const baseTele = await getMultiProcessTelemetry(mainPid, 'TRAE SOLO CN');
   const traeDataDir = path.resolve(homeDir, 'Library/Application Support/TRAE SOLO CN 2');
 
   let aiAgentActive = false;
@@ -332,10 +358,7 @@ export function getTraeTelemetry(mainPid: number): TraeTelemetry {
 
         if (latestSandbox) {
           const ago = Date.now() - latestSandbox.mtime;
-          const timeStr = ago < 60000 ? `${Math.floor(ago / 1000)}s ago` :
-                          ago < 3600000 ? `${Math.floor(ago / 60000)}m ago` :
-                          `${Math.floor(ago / 3600000)}h ago`;
-          recentActivity.push(`sandbox updated ${timeStr}`);
+          recentActivity.push(`sandbox updated ${formatAgo(ago)}`);
         }
       }
 
@@ -343,10 +366,7 @@ export function getTraeTelemetry(mainPid: number): TraeTelemetry {
       if (fs.existsSync(dbPath)) {
         const stat = fs.statSync(dbPath);
         const ago = Date.now() - stat.mtime.getTime();
-        const timeStr = ago < 60000 ? `${Math.floor(ago / 1000)}s ago` :
-                        ago < 3600000 ? `${Math.floor(ago / 60000)}m ago` :
-                        `${Math.floor(ago / 3600000)}h ago`;
-        recentActivity.push(`AI DB modified ${timeStr}`);
+        recentActivity.push(`AI DB modified ${formatAgo(ago)}`);
 
         if (ago < 60000) {
           aiAgentActive = true;
@@ -376,10 +396,7 @@ export function getTraeTelemetry(mainPid: number): TraeTelemetry {
           const timeMatch = lastApiLine.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/);
           if (timeMatch) {
             const apiTime = new Date(timeMatch[1]).getTime();
-            const ago = Date.now() - apiTime;
-            lastApiCall = ago < 60000 ? `${Math.floor(ago / 1000)}s ago` :
-                          ago < 3600000 ? `${Math.floor(ago / 60000)}m ago` :
-                          `${Math.floor(ago / 3600000)}h ago`;
+            lastApiCall = formatAgo(Date.now() - apiTime);
           }
         }
 
@@ -412,24 +429,29 @@ export function getTraeTelemetry(mainPid: number): TraeTelemetry {
         const sizeMB = (stat.size / (1024 * 1024)).toFixed(1);
         recentActivity.push(`electron log ${sizeMB}MB`);
 
-        const tailLines = execSync(
-          `tail -50 "${latestAhaLog}" 2>/dev/null | grep -i "ai\\|agent\\|chat\\|conversation" | tail -3`,
-          { encoding: 'utf-8', timeout: 3000 },
-        ).trim().split('\n').filter(Boolean);
+        // Read last 2KB of log instead of spawning tail+grep
+        const fd = fs.openSync(latestAhaLog, 'r');
+        const readSize = Math.min(stat.size, 2048);
+        const buf = Buffer.alloc(readSize);
+        fs.readSync(fd, buf, 0, readSize, stat.size - readSize);
+        fs.closeSync(fd);
+
+        const tailContent = buf.toString('utf-8');
+        const tailLines = tailContent.split('\n').filter(l =>
+          (l.includes('ai') || l.includes('agent')) && l.trim(),
+        ).slice(-3);
 
         for (const line of tailLines) {
-          if (line.includes('ai') || line.includes('agent')) {
-            const cleanLine = line.replace(/^.*?\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^ ]* /, '').trim();
-            if (cleanLine) {
-              recentActivity.push(cleanLine.slice(0, 80));
-            }
+          const cleanLine = line.replace(/^.*?\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^ ]* /, '').trim();
+          if (cleanLine) {
+            recentActivity.push(cleanLine.slice(0, 80));
           }
         }
       }
     }
   } catch { /* no aha logs */ }
 
-  return {
+  const result: TraeTelemetry = {
     ...baseTele,
     aiAgentActive,
     currentProject,
@@ -438,6 +460,7 @@ export function getTraeTelemetry(mainPid: number): TraeTelemetry {
     lastApiCall,
     sandboxSessions,
   };
+  return setCache(cacheKey, result);
 }
 
 export function getCloudTelemetry(
@@ -457,6 +480,8 @@ export function getCloudTelemetry(
   return { latency, tokens: tokenCount, phase, load, requests };
 }
 
+// ── Helpers ─────────────────────────────────────────────
+
 function formatDuration(ms: number): string {
   if (ms < 0) return '—';
   const seconds = Math.floor(ms / 1000);
@@ -468,6 +493,12 @@ function formatDuration(ms: number): string {
   if (hours > 0) return `${hours}h ${minutes % 60}m`;
   if (minutes > 0) return `${minutes}m`;
   return `${seconds}s`;
+}
+
+function formatAgo(ms: number): string {
+  if (ms < 60000) return `${Math.floor(ms / 1000)}s ago`;
+  if (ms < 3600000) return `${Math.floor(ms / 60000)}m ago`;
+  return `${Math.floor(ms / 3600000)}h ago`;
 }
 
 function formatBytes(bytes: number): string {
