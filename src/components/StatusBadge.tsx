@@ -9,6 +9,7 @@ const colorMap: Record<AgentStatus, string> = {
   working: 'bg-pixel-working animate-pulse',
   waiting: 'bg-pixel-waiting',
   error: 'bg-pixel-error',
+  syncing: 'bg-pixel-online animate-pulse',
 };
 
 export function StatusBadge({ status }: { status: AgentStatus }) {

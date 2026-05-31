@@ -62,11 +62,14 @@ const initialEdges: Edge[] = [
 ];
 
 const defaultAgents: Agent[] = [
-  { id: 'coordinator', name: 'Coordinator', kind: 'coordinator', status: 'offline', capabilities: ['analyze', 'dispatch', 'synthesize'], avatarSeed: 'coord01', apiKey: '', backend: 'DeepSeek API' },
-  { id: 'codex', name: 'Codex', kind: 'codex', status: 'offline', capabilities: ['code_gen', 'api_call'], avatarSeed: '101010', apiKey: '', backend: 'DeepSeek API' },
-  { id: 'trae', name: 'Trae Solo CN', kind: 'trae', status: 'offline', capabilities: ['monitor', 'file_watch', 'ai_read'], avatarSeed: '010101', apiKey: '' },
-  { id: 'claude', name: 'Claude Code', kind: 'claude-code-cli', status: 'offline', capabilities: ['review', 'refactor', 'analyze'], avatarSeed: '111000', apiKey: '', backend: 'DeepSeek API' },
+  { id: 'coordinator', name: 'Coordinator', kind: 'coordinator', status: 'offline', capabilities: ['analyze', 'dispatch', 'synthesize'], avatarSeed: 'coord01', apiKey: '', backend: 'DeepSeek API', logs: [] },
+  { id: 'codex', name: 'Codex', kind: 'codex', status: 'offline', capabilities: ['code_gen', 'api_call'], avatarSeed: '101010', apiKey: '', backend: 'DeepSeek API', logs: [] },
+  { id: 'trae', name: 'Trae Solo CN', kind: 'trae', status: 'offline', capabilities: ['monitor', 'file_watch', 'ai_read'], avatarSeed: '010101', apiKey: '', logs: [] },
+  { id: 'claude', name: 'Claude Code', kind: 'claude-code-cli', status: 'offline', capabilities: ['review', 'refactor', 'analyze'], avatarSeed: '111000', apiKey: '', backend: 'DeepSeek API', logs: [] },
+  { id: 'cursor', name: 'Cursor', kind: 'cursor', status: 'offline', capabilities: ['ide', 'ai_edit', 'codebase'], avatarSeed: 'cur010', apiKey: '', backend: 'Reserved', logs: [] },
 ];
+
+const MAX_LOGS = 50;
 
 interface AgentState {
   agents: Agent[];
@@ -82,6 +85,7 @@ interface AgentState {
   selectAgent: (id: string) => void;
   updateAgentStatus: (id: string, status: AgentStatus) => void;
   updateAgentField: (id: string, field: string, value: unknown) => void;
+  appendAgentLog: (id: string, message: string) => void;
   updateNodeStatus: (nodeId: string, status: TaskStatus) => void;
   fetchKeysStatus: () => Promise<void>;
   fetchAgentStatus: () => Promise<void>;
@@ -117,6 +121,15 @@ export const useAgentStore = create<AgentState>()(
       updateAgentField: (id, field, value) =>
         set((state) => ({
           agents: state.agents.map((a) => (a.id === id ? { ...a, [field]: value } : a)),
+        })),
+
+      appendAgentLog: (id, message) =>
+        set((state) => ({
+          agents: state.agents.map((a) => {
+            if (a.id !== id) return a;
+            const logs = [...a.logs, message].slice(-MAX_LOGS);
+            return { ...a, logs };
+          }),
         })),
 
       updateNodeStatus: (nodeId, status) =>
@@ -256,9 +269,16 @@ export const useAgentStore = create<AgentState>()(
                   const agentId = event.nodeId.replace('agent-', '');
                   const agentStatus: AgentStatus =
                     event.status === 'running' ? 'working' :
-                    event.status === 'done' ? 'online' :
+                    event.status === 'done' ? 'syncing' :
                     event.status === 'error' ? 'error' : 'offline';
                   get().updateAgentStatus(agentId, agentStatus);
+                  get().appendAgentLog(agentId, event.message);
+
+                  if (event.status === 'done') {
+                    setTimeout(() => {
+                      get().updateAgentStatus(agentId, 'online');
+                    }, 1500);
+                  }
                 }
 
                 get().addEventLog(event.message);
