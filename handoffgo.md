@@ -39,14 +39,18 @@
 - PR #24: 自动读取 API Key + Claude Code 使用 DeepSeek API + Coordinator AI + Trae 监控模式
 
 ### 八、Milestone 3.1: 硬核分屏与全视界监控矩阵
-- PR #26 `feat/split-screen-monitor-matrix`:
-  - ✅ **左右硬核分屏**: AppShell 65%/35% 横向 Flex 布局，毛玻璃分割线
-  - ✅ **四神兽监控矩阵**: MonitorDashboard — Claude Code / Codex / Trae Solo CN / Cursor
-  - ✅ **MonitorCard B/W/G 铁律**: bg-white/[0.02] + 1x1呼吸灯 + JetBrains Mono log tailing + 莫兰迪边框微光
-  - ✅ **真实数据桥接**: Zustand appendAgentLog + 5s 轮询 + SSE 实时日志注入
-  - ✅ **双屏同频共振**: 左侧图谱 working → 右侧监控卡片瞬间亮起莫兰迪边框
-  - ✅ **Agent 状态流转**: working → syncing(边框微光) → online(1.5s后)
-  - ✅ **Cursor 预留**: 已作为第5个 Agent 接入矩阵，状态 offline/Reserved
+- PR #26: 左右硬核分屏 + 四神兽监控矩阵 + B/W/G 铁律 + 真实数据桥接
+
+### 九、Milestone 3.2: 终极遥测仪表盘与高密度状态墙
+- PR #28 `feat/telemetry-dashboard`:
+  - ✅ **三段式遥测卡片**: 顶层(身份+心跳) → 中层(遥测参数网格) → 底层(打字机日志微窗)
+  - ✅ **进程遥测**: PID, CPU%, RAM, Uptime, Active File, Load [████░░░░]
+  - ✅ **云端遥测**: Latency, Tokens, Phase, Requests, Load bar
+  - ✅ **server/telemetry.ts**: 真实进程指标 (ps -p PID) + process.memoryUsage()
+  - ✅ **后端遥测桥接**: /api/agents/status 返回完整 telemetry 对象 + system memory
+  - ✅ **Dispatch 追踪**: Codex/Coordinator token 计数 + Phase 状态机 (Idle → AST Parsing → Code Generation → Complete)
+  - ✅ **打字机特效**: 12ms/char 逐字动画 + 光标 ▎
+  - ✅ **B/W/G 排版约束**: 标签 text-neutral-600, 数值 text-neutral-300, CPU>50%→#b56576, Tokens>0→#c2b280
 
 ## 当前设计规范（5条铁律）
 
@@ -69,7 +73,7 @@ src/
     TopBar.tsx               # 顶部导航 + Settings按钮
     MainStage.tsx            # ReactFlow + 任务输入框 + DISPATCH 按钮 (左侧65%)
     MonitorDashboard.tsx     # 四神兽监控矩阵容器 (右侧35%)
-    MonitorCard.tsx          # 单个监控卡片: 状态灯 + 日志窗 + 底部信息
+    MonitorCard.tsx          # 三段式遥测卡片: 身份+心跳 → 遥测网格 → 打字机日志
     AgentCard.tsx            # Agent卡片 (侧栏用)
     StatusBadge.tsx          # 状态灯 (含syncing)
     PixelAvatar.tsx          # SVG像素头像 (含 coordinator + cursor)
@@ -89,6 +93,7 @@ server/
   claude-bridge.ts           # Claude Code CLI spawn + DeepSeek env 传递
   codex-bridge.ts            # DeepSeek Chat Completions 流式 API
   trae-bridge.ts             # Trae Solo CN 监控: 进程检测 + 文件监听 + AI对话读取
+  telemetry.ts               # 遥测: 进程指标(ps) + 云端指标 + 系统内存
 ```
 
 ## 运行方式
@@ -117,7 +122,7 @@ npm run dev:all    # 前后端同时启动
 ## 当前状态
 
 - 版本: v0.5.0-alpha
-- main 最新: PR #26 (21ea287)
+- main 最新: PR #28 (7448f9d)
 - 包管理: npm
 
 ## 未完成
