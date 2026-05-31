@@ -44,7 +44,7 @@ body.theme-light .aero-bg {
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  animation: ambientShift 25s ease-in-out infinite alternate;
+  animation: ambientShift 30s ease-in-out infinite alternate;
 }
 
 body.theme-dark .aero-bg::before {
@@ -58,24 +58,28 @@ body.theme-dark .aero-bg::before {
 
 body.theme-light .aero-bg::before {
   background:
-    radial-gradient(ellipse 70% 50% at 10% 15%, rgba(132, 165, 157, 0.12) 0%, transparent 50%),
-    radial-gradient(ellipse 50% 40% at 90% 80%, rgba(194, 178, 128, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse 40% 30% at 50% 50%, rgba(120, 156, 164, 0.05) 0%, transparent 60%);
+    radial-gradient(ellipse 80% 60% at 10% 15%, rgba(100, 145, 135, 0.24) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 50% at 90% 80%, rgba(180, 160, 100, 0.16) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 35% at 55% 45%, rgba(170, 80, 95, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 15% 85%, rgba(100, 140, 155, 0.12) 0%, transparent 55%),
+    radial-gradient(ellipse 45% 35% at 85% 15%, rgba(155, 130, 80, 0.10) 0%, transparent 55%);
 }
 
 @keyframes ambientShift {
-  0% { opacity: 1; transform: scale(1); }
-  33% { opacity: 0.7; transform: scale(1.08) translate(3%, -2%); }
-  66% { opacity: 0.85; transform: scale(0.96) translate(-2%, 3%); }
-  100% { opacity: 1; transform: scale(1.04) translate(1%, -1%); }
+  0% { opacity: 1; transform: scale(1) translate(0, 0); }
+  20% { opacity: 0.8; transform: scale(1.1) translate(3%, -2%); }
+  40% { opacity: 0.9; transform: scale(0.95) translate(-2%, 4%); }
+  60% { opacity: 0.75; transform: scale(1.05) translate(4%, -1%); }
+  80% { opacity: 0.85; transform: scale(0.98) translate(-3%, 2%); }
+  100% { opacity: 1; transform: scale(1) translate(0, 0); }
 }
 
 .aero-bg > * { position: relative; z-index: 1; }
 
 body.theme-dark .glass-panel {
   background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-top-color: rgba(255, 255, 255, 0.1);
   border-radius: 16px;
@@ -110,8 +114,8 @@ body.theme-light .glass-panel-inset {
 
 body.theme-dark .aero-card {
   background: rgba(255, 255, 255, 0.025);
-  backdrop-filter: blur(32px);
-  -webkit-backdrop-filter: blur(32px);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-top-color: rgba(255, 255, 255, 0.1);
   border-radius: 16px;
@@ -140,7 +144,7 @@ body.theme-dark .aero-card:hover {
 }
 
 body.theme-light .aero-card:hover {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 8px 24px rgba(0, 0, 0, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(132, 165, 157, 0.06);
   border-color: rgba(0, 0, 0, 0.08);
 }
 
@@ -285,8 +289,15 @@ body.theme-light .gradient-border::before {
 
 .glow-line {
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(132, 165, 157, 0.3), rgba(194, 178, 128, 0.2), transparent);
   animation: glowPulse 3s ease-in-out infinite;
+}
+
+body.theme-dark .glow-line {
+  background: linear-gradient(90deg, transparent, rgba(132, 165, 157, 0.3), rgba(194, 178, 128, 0.2), transparent);
+}
+
+body.theme-light .glow-line {
+  background: linear-gradient(90deg, transparent, rgba(90, 125, 116, 0.25), rgba(139, 115, 64, 0.18), transparent);
 }
 
 @keyframes glowPulse {
@@ -357,5 +368,21 @@ body.theme-light .aero-badge { color: inherit; }
 
 .typewriter-cursor {
   animation: typewriter-cursor 0.8s ease-in-out infinite;
+}
+
+body.theme-dark .typewriter-cursor {
   color: #84a59d;
 }
+
+body.theme-light .typewriter-cursor {
+  color: #5a7d74;
+}
+
+@keyframes dataFlash {
+  0% { background-color: rgba(132, 165, 157, 0.08); }
+  100% { background-color: transparent; }
+}
+
+.data-flash { animation: dataFlash 0.6s ease-out; }
+
+.status-transition { transition: border-color 0.5s ease, box-shadow 0.5s ease; }
