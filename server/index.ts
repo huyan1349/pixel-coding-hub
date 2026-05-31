@@ -39,20 +39,21 @@ app.get('/api/keys', (_req, res) => {
 });
 
 app.get('/api/agents/status', async (_req, res) => {
-  const traeStatus = await detectTraeStatus();
-  const claudeInstalled = isClaudeInstalled();
-  const hasDeepseekKey = !!envConfig.deepseekApiKey;
-  const hasAnthropicKey = !!envConfig.anthropicApiKey;
-  const sysMem = getSystemMemory();
+  try {
+    const traeStatus = await detectTraeStatus();
+    const claudeInstalled = isClaudeInstalled();
+    const hasDeepseekKey = !!envConfig.deepseekApiKey;
+    const hasAnthropicKey = !!envConfig.anthropicApiKey;
+    const sysMem = getSystemMemory();
 
-  const traeTelemetry = traeStatus.pid
-    ? getTraeTelemetry(traeStatus.pid)
-    : getProcessTelemetry(null);
+    // Run independent telemetry queries in parallel
+    const [traeTelemetry, claudeTelemetry] = await Promise.all([
+      traeStatus.pid ? getTraeTelemetry(traeStatus.pid) : Promise.resolve(getProcessTelemetry(null)),
+      getClaudeCodeTelemetry(),
+    ]);
 
-  const claudeTelemetry = getClaudeCodeTelemetry();
-
-  const codexTelemetry = getCloudTelemetry(codexLastRequestTime, codexTokenCount, codexPhase);
-  const coordinatorTelemetry = getCloudTelemetry(coordinatorLastRequestTime, coordinatorTokenCount, coordinatorPhase);
+    const codexTelemetry = getCloudTelemetry(codexLastRequestTime, codexTokenCount, codexPhase);
+    const coordinatorTelemetry = getCloudTelemetry(coordinatorLastRequestTime, coordinatorTokenCount, coordinatorPhase);
 
   res.json({
     claude: {
