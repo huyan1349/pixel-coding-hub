@@ -33,10 +33,26 @@ export interface CloudTelemetry {
 
 export interface ClaudeCodeTelemetry extends ProcessTelemetry {
   activeSession: boolean;
+  sessionStatus: 'busy' | 'idle' | 'none';
   workingDir: string | null;
   model: string;
   totalCost: string;
   sessionCount: number;
+  continuousWorkTime: string;
+  currentTask: string;
+  lastActivity: string;
+  subProcessCount: number;
+  version: string;
+  sessionId: string | null;
+}
+
+export interface TraeTelemetry extends ProcessTelemetry {
+  aiAgentActive: boolean;
+  currentProject: string;
+  recentActivity: string[];
+  apiCallCount: number;
+  lastApiCall: string;
+  sandboxSessions: number;
 }
 
 export interface Agent {
@@ -53,8 +69,8 @@ export interface Agent {
   workspaceDir?: string | null;
   aiActive?: boolean;
   logs: string[];
-  telemetry?: ProcessTelemetry | CloudTelemetry | ClaudeCodeTelemetry;
-  telemetryType?: 'process' | 'cloud' | 'claude-code';
+  telemetry?: ProcessTelemetry | CloudTelemetry | ClaudeCodeTelemetry | TraeTelemetry;
+  telemetryType?: 'process' | 'cloud' | 'claude-code' | 'trae';
 }
 
 export interface KeyStatus {

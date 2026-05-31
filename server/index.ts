@@ -4,7 +4,7 @@ import { loadEnvConfig, getCoordinatorKey, getCoordinatorBaseUrl, getCoordinator
 import { spawnClaude, killAllClaudeProcesses, isClaudeInstalled } from './claude-bridge.js';
 import { detectTraeStatus, startFileWatcher, stopFileWatcher, getRecentChanges, readTraeAIConversations, cleanupTraeBridge } from './trae-bridge.js';
 import { coordinatorAnalyze, type CoordinatorAction } from './coordinator-bridge.js';
-import { getProcessTelemetry, getMultiProcessTelemetry, getClaudeCodeTelemetry, getCloudTelemetry, getSystemMemory } from './telemetry.js';
+import { getProcessTelemetry, getMultiProcessTelemetry, getClaudeCodeTelemetry, getTraeTelemetry, getCloudTelemetry, getSystemMemory } from './telemetry.js';
 
 const app = express();
 const PORT = 4001;
@@ -46,13 +46,8 @@ app.get('/api/agents/status', async (_req, res) => {
   const sysMem = getSystemMemory();
 
   const traeTelemetry = traeStatus.pid
-    ? getMultiProcessTelemetry(traeStatus.pid, 'TRAE SOLO CN')
+    ? getTraeTelemetry(traeStatus.pid)
     : getProcessTelemetry(null);
-  if (traeStatus.aiActive) {
-    traeTelemetry.activeFile = traeStatus.workspaceDir
-      ? traeStatus.workspaceDir.split('/').pop() || '—'
-      : traeTelemetry.activeFile;
-  }
 
   const claudeTelemetry = getClaudeCodeTelemetry();
 
@@ -62,7 +57,7 @@ app.get('/api/agents/status', async (_req, res) => {
   res.json({
     claude: {
       available: claudeInstalled && hasAnthropicKey,
-      status: claudeTelemetry.activeSession ? 'working' : (claudeInstalled ? (hasAnthropicKey ? 'online' : 'unconfigured') : 'offline'),
+      status: claudeTelemetry.activeSession ? (claudeTelemetry.sessionStatus === 'busy' ? 'working' : 'online') : (claudeInstalled ? (hasAnthropicKey ? 'online' : 'unconfigured') : 'offline'),
       backend: 'DeepSeek API',
       model: claudeTelemetry.model,
       telemetry: claudeTelemetry,
@@ -76,7 +71,7 @@ app.get('/api/agents/status', async (_req, res) => {
       recentFiles: traeStatus.recentFiles,
       aiActive: traeStatus.aiActive,
       telemetry: traeTelemetry,
-      telemetryType: 'process',
+      telemetryType: 'trae',
     },
     codex: {
       available: hasDeepseekKey,
