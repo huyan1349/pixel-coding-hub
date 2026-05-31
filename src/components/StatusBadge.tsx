@@ -2,21 +2,21 @@ import type { AgentStatus } from '../types/agent';
 import clsx from 'clsx';
 
 const colorMap: Record<AgentStatus, string> = {
-  unconfigured: 'bg-white/10',
-  offline: 'bg-white/5',
-  connecting: 'bg-pixel-waiting animate-pulse',
-  online: 'bg-pixel-online',
-  working: 'bg-pixel-working animate-pulse',
-  waiting: 'bg-pixel-waiting',
-  error: 'bg-pixel-error',
-  syncing: 'bg-pixel-online animate-pulse',
+  unconfigured: 'bg-neutral-600',
+  offline: 'bg-neutral-700',
+  connecting: 'bg-[#c2b280] animate-pulse-soft',
+  online: 'bg-[#84a59d]',
+  working: 'bg-[#c2b280] animate-pulse-soft',
+  waiting: 'bg-neutral-400',
+  error: 'bg-[#b56576]',
+  syncing: 'bg-[#84a59d] animate-pulse-soft',
 };
 
 export function StatusBadge({ status }: { status: AgentStatus }) {
   return (
     <div className="flex items-center gap-2">
-      <span className={clsx('w-1.5 h-1.5 block rounded-full', colorMap[status])} />
-      <span className="text-[9px] font-pixel uppercase text-pixel-muted">{status}</span>
+      <span className={clsx('w-1.5 h-1.5 rounded-full', colorMap[status])} />
+      <span className="telemetry-label" style={{ fontSize: '9px' }}>{status}</span>
     </div>
   );
 }
