@@ -1,18 +1,18 @@
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import type { FlowNodeData } from '../../types/agent';
-import clsx from 'clsx';
 
 const statusColor: Record<string, string> = {
-  todo: 'bg-neutral-600',
-  running: 'bg-[#789ca4] animate-pulse-soft',
-  done: 'bg-[#84a59d]',
-  error: 'bg-[#b56576]',
+  todo: '#525252',
+  running: '#789ca4',
+  done: '#84a59d',
+  error: '#b56576',
 };
 
 type InputNodeType = NodeProps & { data: FlowNodeData };
 
 export function InputNode({ data }: InputNodeType) {
+  const color = statusColor[data.status as string] ?? '#525252';
   return (
     <div
       className="min-w-[170px] transition-all duration-300 ease-out hover:-translate-y-0.5"
@@ -28,22 +28,12 @@ export function InputNode({ data }: InputNodeType) {
       }}
     >
       <div className="flex items-center gap-2 mb-1">
-        <span className={clsx('w-1.5 h-1.5 rounded-full', statusColor[data.status as string] ?? 'bg-neutral-600')} />
+        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
         <span className="telemetry-label" style={{ fontSize: '9px' }}>INPUT</span>
       </div>
-      <div className="text-[12px] text-neutral-200 leading-relaxed" style={{ fontFamily: '"Inter", system-ui, sans-serif', fontWeight: 400 }}>
-        {data.label}
-      </div>
-      {data.description && (
-        <div className="telemetry-value text-[10px] text-neutral-500 mt-1">
-          {data.description as string}
-        </div>
-      )}
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        className="!w-1.5 !h-1.5 !min-w-0 !min-h-0 !bg-neutral-600 !rounded-full !border !border-white/10"
-      />
+      <div className="text-[12px] text-neutral-200 leading-relaxed" style={{ fontFamily: '"Inter", system-ui, sans-serif', fontWeight: 400 }}>{data.label}</div>
+      {data.description && <div className="telemetry-value text-[10px] text-neutral-500 mt-1">{data.description as string}</div>}
+      <Handle type="source" position={Position.Bottom} className="!w-1.5 !h-1.5 !min-w-0 !min-h-0 !bg-neutral-600 !rounded-full !border !border-white/10" />
     </div>
   );
 }

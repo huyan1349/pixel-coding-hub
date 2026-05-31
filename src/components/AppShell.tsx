@@ -1,17 +1,15 @@
 import type { ReactNode } from 'react';
 import { TopBar } from './TopBar';
+import { Sidebar, type ViewId } from './Sidebar';
 
-export function AppShell({ left, right, onSettings }: { left: ReactNode; right: ReactNode; onSettings?: () => void }) {
+export function AppShell({ children, activeView, onViewChange }: { children: ReactNode; activeView: ViewId; onViewChange: (v: ViewId) => void }) {
   return (
     <div className="w-screen h-screen aero-bg text-pixel-text flex flex-col overflow-hidden select-none">
-      <TopBar onSettings={onSettings} />
+      <TopBar />
       <div className="flex-1 flex overflow-hidden">
-        <div className="w-[65%] min-w-0 overflow-hidden relative p-3 pr-1.5">
-          {left}
-        </div>
-        <div className="w-px bg-gradient-to-b from-white/[0.06] via-white/[0.08] to-white/[0.06] flex-shrink-0" />
-        <div className="w-[35%] min-w-0 overflow-hidden p-3 pl-1.5">
-          {right}
+        <Sidebar activeView={activeView} onViewChange={onViewChange} />
+        <div className="flex-1 min-w-0 overflow-hidden pl-14 pr-3 py-3">
+          {children}
         </div>
       </div>
     </div>
