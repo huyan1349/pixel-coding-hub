@@ -33,17 +33,18 @@
 - PR #20: Express 桥接服务器 + 7节点并行图谱 + EventSource SSE + persist
 
 ### 六、Milestone 3 终极真理: 真实 Agent 桥接
-- PR #22 `feat/m3-real-agent-bridge`:
-  - ✅ 战役1: POST /api/session 安全握手, API Key 通过 sessionId 传递, fetch+ReadableStream 替代 EventSource
-  - ✅ 战役2: Claude Code CLI — spawn('claude', ['-p', prompt, '--output-format', 'stream-json']), 解析 stream-json stdout, 60s超时+SIGTERM清理
-  - ✅ 战役3: Codex OpenAI API — fetch Chat Completions stream:true, 逐chunk解析SSE, 实时推送到前端图谱
-  - ✅ 战役4: Trae 文件IO — fs.writeFileSync 生成 GeneratedUI.tsx, exec('trae'/'code'/'cursor') 逐个尝试唤醒编辑器, SIGINT/SIGTERM 时清理文件
-  - ✅ 无 API Key 时自动降级为模拟模式, 优雅降级
+- PR #22: POST /api/session 安全握手 + Claude CLI + Codex API + Trae 文件IO
 
-### 七、验证
-- TypeScript 零错误, Production build 通过
-- Session + SSE curl 测试通过
-- B/W/G 规范零违规
+### 七、Milestone 4: 监控+协调架构重构
+- PR #24 `feat/auto-apikey-monitor-mode`:
+  - ✅ **自动读取 API Key**: 从 process.env 读取 DEEPSEEK_API_KEY、ANTHROPIC_API_KEY、ANTHROPIC_BASE_URL、ANTHROPIC_MODEL，无需手动填写
+  - ✅ **Claude Code 使用 DeepSeek API**: 通过 ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic，模型 deepseek-v4-pro
+  - ✅ **Coordinator AI**: 新建 coordinator-bridge.ts，使用 DeepSeek API 分析任务、分配子任务、综合结果
+  - ✅ **Trae Solo CN 监控模式**: 进程检测(ps aux)、文件监听(chokidar)、AI对话读取(ModularData)
+  - ✅ **架构定位重构**: 从"代替 Agent 输出"改为"读取各编程软件状态和结果 + 汇总面板 + AI 协调"
+  - ✅ **Settings 面板**: 自动检测 Key 状态显示（不再手动输入），显示环境信息
+  - ✅ **新流程**: 用户输入任务 → Coordinator 分析分配 → 各 Agent 并行执行 → 结果汇总 → Coordinator 综合
+  - ✅ **新增端点**: /api/keys, /api/agents/status, /api/dispatch, /api/trae/conversations, /api/trae/changes, /api/trae/watch
 
 ## 当前设计规范（5条铁律）
 
@@ -57,50 +58,60 @@
 
 ```
 src/
-  App.tsx                    # 总入口 + SSE 状态显示
+  App.tsx                    # 总入口 + 自动获取 Key/Agent 状态
   main.tsx                   # React 挂载
-  types/agent.ts             # AgentStatus + TaskStatus + Agent(apiKey) + FlowNodeData + SSEEvent
-  store/useAgentStore.ts     # Zustand persist + 7节点图谱 + fetch SSE + 事件日志
+  types/agent.ts             # AgentStatus + TaskStatus + Agent + KeyStatus + FlowNodeData + SSEEvent
+  store/useAgentStore.ts     # Zustand + 7节点图谱 + dispatchTask + fetchKeysStatus + fetchAgentStatus
   components/
     AppShell.tsx             # 12列Grid骨架
     TopBar.tsx               # 顶部导航
-    MainStage.tsx            # ReactFlow + CONNECT SSE 按钮 + LIVE 指示器
-    AgentCard.tsx            # Agent卡片
+    MainStage.tsx            # ReactFlow + 任务输入框 + DISPATCH 按钮
+    AgentCard.tsx            # Agent卡片 (backend信息 + workspace + working动画)
     StatusBadge.tsx          # 状态灯
-    PixelAvatar.tsx          # SVG像素头像
-    SettingsPanel.tsx        # 毛玻璃设置覆盖层 (API Key + v0.4.0-alpha)
+    PixelAvatar.tsx          # SVG像素头像 (含 coordinator #b56576)
+    SettingsPanel.tsx        # 自动检测 Key 状态 + 环境信息 (v0.5.0-alpha)
     flow/
-      TaskNode.tsx           # 任务节点 (4x4方形Handle)
-      AgentNode.tsx          # Agent节点 (4x4方形Handle)
-      InputNode.tsx          # 输入节点 (4x4方形Handle)
-      FlowEdge.tsx           # 自定义边 (SmoothStep + 莫兰迪动画色)
+      TaskNode.tsx           # 任务节点
+      AgentNode.tsx          # Agent节点
+      InputNode.tsx          # 输入节点
+      FlowEdge.tsx           # 自定义边
   styles/
     globals.css              # Tailwind v4 @theme 令牌
     pixel.css                # glass-panel / pixel-button / React Flow覆盖
 server/
-  index.ts                   # Express 主服务器 (:4001) + SSE /api/stream + /api/session + /api/health
-  sessions.ts                # Session 管理 (UUID + 1h过期 + 自动清理)
-  claude-bridge.ts           # Claude Code CLI spawn + stream-json 解析 + 进程清理
-  codex-bridge.ts            # OpenAI Chat Completions 流式 API + chunk 解析
-  trae-bridge.ts             # 文件 IO + 编辑器唤醒 + 清理
+  index.ts                   # Express 主服务器 (:4001) + /api/keys + /api/agents/status + /api/dispatch + /api/trae/*
+  env.ts                     # 环境变量自动读取 + Key 状态掩码
+  coordinator-bridge.ts      # Coordinator AI (DeepSeek) 任务分析 + 分配 + 综合
+  claude-bridge.ts           # Claude Code CLI spawn + DeepSeek env 传递
+  codex-bridge.ts            # DeepSeek Chat Completions 流式 API
+  trae-bridge.ts             # Trae Solo CN 监控: 进程检测 + 文件监听 + AI对话读取
 ```
 
 ## 运行方式
 
 ```bash
-pnpm dev            # 前端 Vite dev server
-pnpm dev:server     # 后端 Express 桥接服务器 (localhost:4001)
-pnpm dev:all        # 前后端同时启动
+npm dev            # 前端 Vite dev server
+npm run dev:server # 后端 Express 桥接服务器 (localhost:4001)
+npm run dev:all    # 前后端同时启动
 ```
 
-## 真实 Agent 接入方式
+## Agent 接入方式（v0.5.0 监控+协调模式）
 
-1. 在 Settings 面板填入 API Key → 自动持久化到 localStorage
-2. 点击 CONNECT SSE → 前端 POST /api/session 发送 Keys → 获取 sessionId
-3. fetch /api/stream?sessionId=xxx → 后端根据 Key 有无决定真实/模拟模式
-4. Codex: 有 OpenAI Key → 真实流式 API 调用; 无 → 模拟
-5. Claude: 有 Anthropic Key → spawn claude CLI; 无 → 模拟
-6. Trae: 写文件 + 尝试唤醒编辑器 (trae/code/cursor)
+1. 后端启动时自动从 process.env 读取 API Key
+2. 前端 GET /api/keys 获取 Key 可用状态（掩码显示）
+3. 前端 GET /api/agents/status 获取各 Agent 实时状态
+4. 用户输入任务 → POST /api/dispatch → Coordinator 分析分配 → 各 Agent 执行 → 结果汇总
+5. Claude Code: spawn claude CLI (使用 DeepSeek API via ANTHROPIC_BASE_URL)
+6. Codex: DeepSeek Chat Completions API
+7. Trae Solo CN: 进程检测 + 文件监听 + AI 对话读取 (监控模式，不代替输出)
+
+## 环境变量
+
+- `DEEPSEEK_API_KEY`: DeepSeek API Key (用于 Coordinator + Codex)
+- `ANTHROPIC_API_KEY`: Anthropic 兼容 Key (实际是 DeepSeek Key)
+- `ANTHROPIC_BASE_URL`: https://api.deepseek.com/anthropic
+- `ANTHROPIC_MODEL`: deepseek-v4-pro
+- `CLAUDE_CODE_SUBAGENT_MODEL`: deepseek-v4-flash
 
 ## Push 规范（必须遵守）
 
@@ -111,14 +122,15 @@ pnpm dev:all        # 前后端同时启动
 
 ## 当前状态
 
-- 版本: v0.4.0-alpha
-- main 最新: PR #22 (0d6e9f0)
-- 包管理: pnpm
+- 版本: v0.5.0-alpha
+- main 最新: PR #24 (e1bef3d)
+- 包管理: npm
 
 ## 未完成
 
-- 真实 Codex CLI 接入（当前用 OpenAI API 替代）
-- Trae 真实 API/SDK 接入（当前用文件IO+进程唤醒替代）
-- API Key 加密存储（当前明文 localStorage）
+- Trae Solo CN 更深度集成（读取终端输出、AI Agent 实时对话流）
+- Coordinator AI 多轮对话（当前单轮分析+综合）
+- Agent 输出结果持久化到数据库
+- API Key 加密存储
 - CI/CD 配置
 - 桌面化封装 (Tauri)
