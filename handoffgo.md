@@ -16,6 +16,21 @@
    - 支持多种JSONL格式（message.content数组/string、content字段等）
    - 前后端接口已同步更新
 
+3. **i18n + TypewriterOutput + 浅色模式** (PR #38)
+   - DashboardView: TypewriterOutput模糊打字机效果，i18n全量适配，数据驱动动画（边框闪动/CPU弹跳/数据flash）
+   - LogsView: i18n适配
+   - Sidebar: i18n + 浅色模式全适配
+   - MainStage: i18n适配
+   - TopBar: 浅色模式适配
+   - AgentNode: 浅色模式适配
+   - AppShell: 主题兼容清理
+   - i18n: 新增dispatchHint key
+
+4. **pixel.css 视觉效果增强** (PR #36)
+   - 深色/浅色模式5层径向渐变
+   - ambientShift动画、毛玻璃增强
+   - typewriter-cursor、data-flash、status-transition动画类
+
 ## 未完成任务
 
 - 无
