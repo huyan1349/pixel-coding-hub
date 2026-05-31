@@ -42,6 +42,7 @@ export interface ClaudeCodeTelemetry extends ProcessTelemetry {
   currentTask: string;
   lastActivity: string;
   subProcessCount: number;
+  recentOutput?: string[];
   version: string;
   sessionId: string | null;
 }

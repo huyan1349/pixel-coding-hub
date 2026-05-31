@@ -36,6 +36,7 @@ export interface ClaudeCodeTelemetry extends ProcessTelemetry {
   subProcessCount: number;
   version: string;
   sessionId: string | null;
+  recentOutput: string[];
 }
 
 export interface TraeTelemetry extends ProcessTelemetry {
@@ -210,6 +211,7 @@ export async function getClaudeCodeTelemetry(): Promise<ClaudeCodeTelemetry> {
 
   let totalCost = '$0.00';
   let sessionCount = 0;
+  let recentOutput: string[] = [];
   try {
     const historyPath = path.resolve(homeDir, '.claude/history.jsonl');
     if (fs.existsSync(historyPath)) {
@@ -224,6 +226,40 @@ export async function getClaudeCodeTelemetry(): Promise<ClaudeCodeTelemetry> {
         } catch { /* skip */ }
       }
       totalCost = `$${cost.toFixed(2)}`;
+
+      const assistantMessages: string[] = [];
+      for (let i = lines.length - 1; i >= 0 && assistantMessages.length < 5; i--) {
+        try {
+          const entry = JSON.parse(lines[i]);
+          if (entry.type === 'assistant' || entry.role === 'assistant') {
+            let text = '';
+            if (typeof entry.message === 'string') {
+              text = entry.message;
+            } else if (entry.message?.content) {
+              const content = Array.isArray(entry.message.content)
+                ? entry.message.content
+                : [entry.message.content];
+              for (const block of content) {
+                if (typeof block === 'string') text += block;
+                else if (block?.type === 'text' && block.text) text += block.text;
+              }
+            } else if (entry.content) {
+              if (typeof entry.content === 'string') {
+                text = entry.content;
+              } else if (Array.isArray(entry.content)) {
+                for (const block of entry.content) {
+                  if (typeof block === 'string') text += block;
+                  else if (block?.type === 'text' && block.text) text += block.text;
+                }
+              }
+            }
+            if (text.trim()) {
+              assistantMessages.push(text.trim().slice(0, 200));
+            }
+          }
+        } catch { /* skip */ }
+      }
+      recentOutput = assistantMessages.reverse();
     }
   } catch { /* no history */ }
 
@@ -305,6 +341,7 @@ export async function getClaudeCodeTelemetry(): Promise<ClaudeCodeTelemetry> {
     subProcessCount,
     version,
     sessionId,
+    recentOutput,
   };
   return setCache(cacheKey, result);
 }
@@ -358,7 +395,7 @@ export async function getTraeTelemetry(mainPid: number): Promise<TraeTelemetry> 
 
         if (latestSandbox) {
           const ago = Date.now() - latestSandbox.mtime;
-          recentActivity.push(`sandbox updated ${formatAgo(ago)}`);
+          recentActivity.push(`沙箱环境 ${formatAgoZh(ago)}更新`);
         }
       }
 
@@ -366,7 +403,7 @@ export async function getTraeTelemetry(mainPid: number): Promise<TraeTelemetry> 
       if (fs.existsSync(dbPath)) {
         const stat = fs.statSync(dbPath);
         const ago = Date.now() - stat.mtime.getTime();
-        recentActivity.push(`AI DB modified ${formatAgo(ago)}`);
+        recentActivity.push(`AI 数据库 ${formatAgoZh(ago)}修改`);
 
         if (ago < 60000) {
           aiAgentActive = true;
@@ -407,7 +444,7 @@ export async function getTraeTelemetry(mainPid: number): Promise<TraeTelemetry> 
             if (urlMatch) {
               const url = urlMatch[1];
               const endpoint = url.split('/').pop() || url;
-              recentActivity.push(`API → ${endpoint}`);
+              recentActivity.push(translateEndpoint(endpoint));
             }
           }
         }
@@ -427,7 +464,7 @@ export async function getTraeTelemetry(mainPid: number): Promise<TraeTelemetry> 
         const latestAhaLog = path.resolve(ahaLogDir, ahaLogs[0]);
         const stat = fs.statSync(latestAhaLog);
         const sizeMB = (stat.size / (1024 * 1024)).toFixed(1);
-        recentActivity.push(`electron log ${sizeMB}MB`);
+        recentActivity.push(`运行日志 ${sizeMB}MB`);
 
         // Read last 2KB of log instead of spawning tail+grep
         const fd = fs.openSync(latestAhaLog, 'r');
@@ -442,10 +479,7 @@ export async function getTraeTelemetry(mainPid: number): Promise<TraeTelemetry> 
         ).slice(-3);
 
         for (const line of tailLines) {
-          const cleanLine = line.replace(/^.*?\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^ ]* /, '').trim();
-          if (cleanLine) {
-            recentActivity.push(cleanLine.slice(0, 80));
-          }
+          recentActivity.push(translateAhaLine(line));
         }
       }
     }
@@ -499,6 +533,64 @@ function formatAgo(ms: number): string {
   if (ms < 60000) return `${Math.floor(ms / 1000)}s ago`;
   if (ms < 3600000) return `${Math.floor(ms / 60000)}m ago`;
   return `${Math.floor(ms / 3600000)}h ago`;
+}
+
+function formatAgoZh(ms: number): string {
+  if (ms < 60000) return `${Math.floor(ms / 1000)}秒前`;
+  if (ms < 3600000) return `${Math.floor(ms / 60000)}分钟前`;
+  return `${Math.floor(ms / 3600000)}小时前`;
+}
+
+const ENDPOINT_MAP: Record<string, string> = {
+  'chat/completions': '对话请求完成',
+  'completions': '文本补全请求',
+  'models': '模型列表查询',
+  'embeddings': '向量嵌入请求',
+  'images/generations': '图像生成请求',
+  'images/edits': '图像编辑请求',
+  'audio/transcriptions': '语音转文字',
+  'audio/translations': '语音翻译',
+  'audio/speech': '文字转语音',
+  'files': '文件操作',
+  'fine-tuning': '模型微调',
+  'moderations': '内容审核',
+  'threads': '会话线程操作',
+  'messages': '消息发送',
+  'runs': '运行任务',
+  'assistants': '助手查询',
+  'batches': '批量任务',
+  'uploads': '文件上传',
+};
+
+function translateEndpoint(endpoint: string): string {
+  for (const [key, value] of Object.entries(ENDPOINT_MAP)) {
+    if (endpoint.includes(key)) return value;
+  }
+  return `API 请求 → ${endpoint}`;
+}
+
+function translateAhaLine(line: string): string {
+  const lower = line.toLowerCase();
+  if (lower.includes('ai agent started') || lower.includes('agent started')) return 'AI 代理已启动';
+  if (lower.includes('ai agent stopped') || lower.includes('agent stopped')) return 'AI 代理已停止';
+  if (lower.includes('ai agent error') || lower.includes('agent error')) return 'AI 代理发生错误';
+  if (lower.includes('ai agent idle') || lower.includes('agent idle')) return 'AI 代理空闲';
+  if (lower.includes('ai agent busy') || lower.includes('agent busy')) return 'AI 代理忙碌中';
+  if (lower.includes('ai agent ready') || lower.includes('agent ready')) return 'AI 代理就绪';
+  if (lower.includes('ai agent processing') || lower.includes('agent processing')) return 'AI 代理处理中';
+  if (lower.includes('ai agent connected') || lower.includes('agent connected')) return 'AI 代理已连接';
+  if (lower.includes('ai agent disconnected') || lower.includes('agent disconnected')) return 'AI 代理已断开';
+  if (lower.includes('ai request') || lower.includes('agent request')) return 'AI 请求发送';
+  if (lower.includes('ai response') || lower.includes('agent response')) return 'AI 响应接收';
+  if (lower.includes('ai streaming') || lower.includes('agent streaming')) return 'AI 流式响应中';
+  if (lower.includes('ai tool') || lower.includes('agent tool')) return 'AI 工具调用';
+  if (lower.includes('ai code') || lower.includes('agent code')) return 'AI 代码生成';
+  if (lower.includes('ai task') || lower.includes('agent task')) return 'AI 任务执行';
+  if (lower.includes('sandbox')) return '沙箱环境操作';
+  if (lower.includes('context') || lower.includes('token')) return '上下文/Token 处理';
+  const cleaned = line.replace(/^.*?\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^ ]* /, '').trim();
+  if (cleaned.length > 60) return cleaned.slice(0, 57) + '...';
+  return cleaned || 'AI 活动记录';
 }
 
 function formatBytes(bytes: number): string {
