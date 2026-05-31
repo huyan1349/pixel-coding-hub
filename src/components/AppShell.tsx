@@ -5,7 +5,7 @@ import { Sidebar, type ViewId } from './Sidebar';
 
 export function AppShell({ children, activeView, onViewChange }: { children: ReactNode; activeView: ViewId; onViewChange: (v: ViewId) => void }) {
   return (
-    <div className="w-screen h-screen aero-bg text-pixel-text flex flex-col overflow-hidden select-none">
+    <div className="w-screen h-screen aero-bg flex flex-col overflow-hidden select-none">
       <TopBar />
       <div className="flex-1 flex overflow-hidden">
         <Sidebar activeView={activeView} onViewChange={onViewChange} />

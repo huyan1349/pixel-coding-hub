@@ -9,6 +9,8 @@ import {
 import '@xyflow/react/dist/style.css';
 import clsx from 'clsx';
 import { useAgentStore } from '../store/useAgentStore';
+import { usePreferences } from '../store/usePreferences';
+import { t } from '../i18n';
 import { TaskNode } from './flow/TaskNode';
 import { AgentNode } from './flow/AgentNode';
 import { InputNode } from './flow/InputNode';
@@ -29,6 +31,7 @@ export function MainStage() {
     nodes: storeNodes, edges: storeEdges,
     dispatchTask, disconnectSSE, isStreaming, sseConnected,
   } = useAgentStore();
+  const { locale } = usePreferences();
 
   const [nodes, , onNodesChange] = useNodesState(storeNodes);
   const [edges, , onEdgesChange] = useEdgesState(storeEdges);
@@ -55,12 +58,12 @@ export function MainStage() {
     <div className="w-full h-full relative overflow-hidden rounded-2xl" style={{ backgroundColor: '#0c0c0e' }}>
       <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
         <div className="glass-panel-inset px-2.5 py-1">
-          <span className="telemetry-label" style={{ fontSize: '10px' }}>STAGE MAP</span>
+          <span className="telemetry-label" style={{ fontSize: '10px' }}>{t('stageMap', locale)}</span>
         </div>
         {sseConnected && (
           <div className="glass-panel-inset px-2.5 py-1 flex items-center gap-1.5">
             <span className="w-1 h-1 rounded-full bg-[#84a59d] animate-pulse-soft" />
-            <span className="telemetry-label" style={{ fontSize: '10px', color: '#84a59d' }}>LIVE</span>
+            <span className="telemetry-label" style={{ fontSize: '10px', color: '#84a59d' }}>{t('live', locale)}</span>
           </div>
         )}
       </div>
@@ -72,7 +75,7 @@ export function MainStage() {
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="输入任务描述，Coordinator 将分析并分配给各 Agent..."
+            placeholder={t('inputPlaceholder', locale)}
             disabled={isStreaming}
             className="flex-1 bg-transparent text-[12px] text-neutral-200 placeholder:text-neutral-600 focus:outline-none"
             style={{ fontFamily: '"Inter", system-ui, sans-serif', fontWeight: 300 }}
@@ -85,7 +88,7 @@ export function MainStage() {
               isStreaming && 'border-[#b56576]/30 text-[#b56576]',
             )}
           >
-            {isStreaming ? 'STOP' : 'DISPATCH'}
+            {isStreaming ? t('stop', locale) : t('dispatch', locale)}
           </button>
         </div>
       </div>
