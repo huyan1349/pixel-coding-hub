@@ -49,9 +49,11 @@ body.theme-light .aero-bg {
 
 body.theme-dark .aero-bg::before {
   background:
-    radial-gradient(ellipse 70% 50% at 10% 15%, rgba(132, 165, 157, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse 50% 40% at 90% 80%, rgba(194, 178, 128, 0.06) 0%, transparent 50%),
-    radial-gradient(ellipse 40% 30% at 50% 50%, rgba(120, 156, 164, 0.03) 0%, transparent 60%);
+    radial-gradient(ellipse 80% 60% at 10% 15%, rgba(132, 165, 157, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 50% at 90% 80%, rgba(194, 178, 128, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 35% at 55% 45%, rgba(181, 101, 118, 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 15% 85%, rgba(120, 156, 164, 0.06) 0%, transparent 55%),
+    radial-gradient(ellipse 45% 35% at 85% 15%, rgba(168, 144, 96, 0.05) 0%, transparent 55%);
 }
 
 body.theme-light .aero-bg::before {
