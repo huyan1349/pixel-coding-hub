@@ -42,15 +42,21 @@
 - PR #26: 左右硬核分屏 + 四神兽监控矩阵 + B/W/G 铁律 + 真实数据桥接
 
 ### 九、Milestone 3.2: 终极遥测仪表盘与高密度状态墙
-- PR #28 `feat/telemetry-dashboard`:
-  - ✅ **三段式遥测卡片**: 顶层(身份+心跳) → 中层(遥测参数网格) → 底层(打字机日志微窗)
-  - ✅ **进程遥测**: PID, CPU%, RAM, Uptime, Active File, Load [████░░░░]
-  - ✅ **云端遥测**: Latency, Tokens, Phase, Requests, Load bar
-  - ✅ **server/telemetry.ts**: 真实进程指标 (ps -p PID) + process.memoryUsage()
-  - ✅ **后端遥测桥接**: /api/agents/status 返回完整 telemetry 对象 + system memory
-  - ✅ **Dispatch 追踪**: Codex/Coordinator token 计数 + Phase 状态机 (Idle → AST Parsing → Code Generation → Complete)
-  - ✅ **打字机特效**: 12ms/char 逐字动画 + 光标 ▎
-  - ✅ **B/W/G 排版约束**: 标签 text-neutral-600, 数值 text-neutral-300, CPU>50%→#b56576, Tokens>0→#c2b280
+- PR #28: 三段式遥测卡片 + 进程/云端遥测 + 打字机日志 + B/W/G排版
+
+### 十、Milestone 3.3: 实时遥测仪表盘
+- PR #31 `feat/realtime-telemetry-dashboard`:
+  - ✅ **Claude Code 深度遥测**: 读取 `~/.claude/sessions/{pid}.json` 获取 session status (busy/idle/none)
+  - ✅ **连续工作时间**: 从 session startedAt 计算 continuousWorkTime (如 22h34m)
+  - ✅ **当前任务**: 从 `history.jsonl` 最后一条记录读取 currentTask
+  - ✅ **Claude 详细指标**: lastActivity, subProcessCount, version, sessionId
+  - ✅ **Trae 深度遥测**: 新增 `TraeTelemetry` 接口 + `getTraeTelemetry()`
+  - ✅ **Trae AI Agent 状态**: 检测 database.db 修改时间判断 AI 是否活跃
+  - ✅ **Trae 项目检测**: 读取 workspace.json 获取当前项目名
+  - ✅ **Trae API 统计**: 解析 ckg_server 日志统计 API 调用次数和最后调用时间
+  - ✅ **Trae 活动流**: 读取 sandbox/aha_log/ckg 日志生成 recentActivity
+  - ✅ **UI 升级**: SessionStatusBadge + TASK 显示 + AI AGENT 徽章 + 活动流
+  - ✅ 版本升级至 v0.6.0-alpha
 
 ## 当前设计规范（5条铁律）
 
@@ -66,18 +72,18 @@
 src/
   App.tsx                    # 总入口 + 5s轮询 + 分屏布局
   main.tsx                   # React 挂载
-  types/agent.ts             # AgentStatus(含syncing) + TaskStatus + Agent(含logs) + KeyStatus
-  store/useAgentStore.ts     # Zustand + 7节点图谱 + dispatchTask + appendAgentLog + 5s轮询
+  types/agent.ts             # AgentStatus + TaskStatus + Agent + ClaudeCodeTelemetry + TraeTelemetry
+  store/useAgentStore.ts     # Zustand + 7节点图谱 + dispatchTask + 5s轮询
   components/
     AppShell.tsx             # 65%/35% 横向分屏 + 毛玻璃分割线
     TopBar.tsx               # 顶部导航 + Settings按钮
-    MainStage.tsx            # ReactFlow + 任务输入框 + DISPATCH 按钮 (左侧65%)
-    MonitorDashboard.tsx     # 四神兽监控矩阵容器 (右侧35%)
-    MonitorCard.tsx          # 三段式遥测卡片: 身份+心跳 → 遥测网格 → 打字机日志
-    AgentCard.tsx            # Agent卡片 (侧栏用)
-    StatusBadge.tsx          # 状态灯 (含syncing)
-    PixelAvatar.tsx          # SVG像素头像 (含 coordinator + cursor)
-    SettingsPanel.tsx        # 自动检测 Key 状态 + 环境信息 (v0.5.0-alpha)
+    MainStage.tsx            # ReactFlow + 任务输入框 + DISPATCH 按钮
+    MonitorDashboard.tsx     # 四神兽监控矩阵容器
+    MonitorCard.tsx          # 遥测卡片: ClaudeCode/Trae/Cloud/Process 专属网格 + 打字机日志
+    AgentCard.tsx            # Agent卡片
+    StatusBadge.tsx          # 状态灯
+    PixelAvatar.tsx          # SVG像素头像
+    SettingsPanel.tsx        # 自动检测 Key + 环境信息 (v0.6.0-alpha)
     flow/
       TaskNode.tsx           # 任务节点
       AgentNode.tsx          # Agent节点
@@ -87,13 +93,13 @@ src/
     globals.css              # Tailwind v4 @theme 令牌
     pixel.css                # glass-panel / pixel-button / React Flow覆盖
 server/
-  index.ts                   # Express 主服务器 (:4001)
+  index.ts                   # Express 主服务器 (:4001) + getTraeTelemetry
   env.ts                     # 环境变量自动读取 + Key 状态掩码
-  coordinator-bridge.ts      # Coordinator AI (DeepSeek) 任务分析 + 分配 + 综合
-  claude-bridge.ts           # Claude Code CLI spawn + DeepSeek env 传递
+  coordinator-bridge.ts      # Coordinator AI (DeepSeek)
+  claude-bridge.ts           # Claude Code CLI spawn
   codex-bridge.ts            # DeepSeek Chat Completions 流式 API
-  trae-bridge.ts             # Trae Solo CN 监控: 进程检测 + 文件监听 + AI对话读取
-  telemetry.ts               # 遥测: 进程指标(ps) + 云端指标 + 系统内存
+  trae-bridge.ts             # Trae Solo CN 监控: 进程检测 + 文件监听
+  telemetry.ts               # 遥测: ClaudeCode + Trae + 进程 + 云端 + 系统内存
 ```
 
 ## 运行方式
@@ -106,28 +112,28 @@ npm run dev:all    # 前后端同时启动
 
 ## 环境变量
 
-- `DEEPSEEK_API_KEY`: DeepSeek API Key (用于 Coordinator + Codex)
+- `DEEPSEEK_API_KEY`: DeepSeek API Key
 - `ANTHROPIC_API_KEY`: Anthropic 兼容 Key (实际是 DeepSeek Key)
 - `ANTHROPIC_BASE_URL`: https://api.deepseek.com/anthropic
 - `ANTHROPIC_MODEL`: deepseek-v4-pro
 - `CLAUDE_CODE_SUBAGENT_MODEL`: deepseek-v4-flash
 
-## Push 规范（必须遵守）
+## Push 规范
 
 - 分支命名: feat/xxx, fix/xxx, refactor/xxx, chore/xxx, docs/xxx
 - Commit: Conventional Commits
 - 流程: feature branch → PR → Squash Merge → main
-- main 禁止直接 push
 
 ## 当前状态
 
-- 版本: v0.5.0-alpha
-- main 最新: PR #28 (7448f9d)
+- 版本: v0.6.0-alpha
+- main 最新: PR #31 (aea2410)
 - 包管理: npm
 
 ## 未完成
 
-- Trae Solo CN 更深度集成（读取终端输出、AI Agent 实时对话流）
+- Trae Solo CN 实时输出内容（当前只显示进程指标和活动流，未显示 AI Agent 实时对话文本）
+- Claude Code 实时输出流（当前只读取 history.jsonl 静态记录，未实现流式输出监听）
 - Cursor 真实接入（当前为预留 mock 节点）
 - Coordinator AI 多轮对话（当前单轮分析+综合）
 - Agent 输出结果持久化到数据库
