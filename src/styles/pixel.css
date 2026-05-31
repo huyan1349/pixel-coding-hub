@@ -1,28 +1,15 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&family=Press+Start+2P&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Press+Start+2P&display=swap');
 
-*, *::before, *::after {
-  box-sizing: border-box;
-}
+*, *::before, *::after { box-sizing: border-box; }
 
-::-webkit-scrollbar {
-  width: 3px;
-  height: 3px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.05); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.1); }
 
 body {
-  margin: 0;
-  padding: 0;
-  background-color: #0c0c0e;
+  margin: 0; padding: 0;
+  background-color: #08080a;
   color: #e5e5e5;
   font-family: "Inter", "SF Pro Display", system-ui, -apple-system, sans-serif;
   overflow: hidden;
@@ -31,14 +18,32 @@ body {
 }
 
 .aero-bg {
-  background-color: #0c0c0e;
-  background-image:
-    radial-gradient(ellipse 80% 60% at 10% 20%, rgba(132, 165, 157, 0.03) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 90% 80%, rgba(194, 178, 128, 0.025) 0%, transparent 60%),
-    linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 48px 48px, 48px 48px;
+  background-color: #08080a;
+  position: relative;
+  overflow: hidden;
 }
+
+.aero-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 15% 10%, rgba(132, 165, 157, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 85% 85%, rgba(194, 178, 128, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 50% at 50% 50%, rgba(120, 156, 164, 0.02) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  animation: ambientShift 20s ease-in-out infinite alternate;
+}
+
+@keyframes ambientShift {
+  0% { opacity: 1; transform: scale(1); }
+  33% { opacity: 0.8; transform: scale(1.05) translate(2%, -1%); }
+  66% { opacity: 0.9; transform: scale(0.98) translate(-1%, 2%); }
+  100% { opacity: 1; transform: scale(1.02) translate(1%, -2%); }
+}
+
+.aero-bg > * { position: relative; z-index: 1; }
 
 .glass-panel {
   background: rgba(255, 255, 255, 0.03);
@@ -66,12 +71,13 @@ body {
   border-top-color: rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 8px 32px rgba(0, 0, 0, 0.4);
-  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.4s ease;
 }
 
 .aero-card:hover {
-  transform: translateY(-2px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 12px 40px rgba(0, 0, 0, 0.5);
+  transform: translateY(-3px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 16px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .pixel-button {
@@ -83,9 +89,9 @@ body {
   color: #a3a3a3;
   padding: 6px 16px;
   font-family: "Inter", system-ui, sans-serif;
-  font-weight: 400;
+  font-weight: 500;
   font-size: 12px;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
   cursor: pointer;
   border-radius: 8px;
   transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
@@ -96,6 +102,7 @@ body {
   border-color: rgba(255, 255, 255, 0.14);
   color: #e5e5e5;
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .pixel-button:active {
@@ -105,9 +112,9 @@ body {
 
 .telemetry-label {
   font-family: "Inter", system-ui, sans-serif;
-  font-weight: 300;
+  font-weight: 400;
   font-size: 11px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   color: #525252;
   text-transform: uppercase;
 }
@@ -151,47 +158,57 @@ body {
   margin: 4px 0;
 }
 
-.react-flow__handle {
-  width: 6px !important;
-  height: 6px !important;
-  min-width: 0 !important;
-  min-height: 0 !important;
-  border-radius: 3px !important;
-  background: #404040 !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  transition: all 0.2s ease;
+.gradient-border {
+  position: relative;
 }
 
-.react-flow__handle:hover {
-  background: #84a59d !important;
-  border-color: rgba(132, 165, 157, 0.3) !important;
-  transform: scale(1.3);
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(132, 165, 157, 0.2), rgba(194, 178, 128, 0.1), rgba(181, 101, 118, 0.1));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
 }
 
-.react-flow__controls button {
-  background: rgba(255, 255, 255, 0.03) !important;
-  border: 1px solid rgba(255, 255, 255, 0.06) !important;
-  border-top-color: rgba(255, 255, 255, 0.1) !important;
-  color: #a3a3a3 !important;
-  border-radius: 8px !important;
-  backdrop-filter: blur(16px) !important;
+.gradient-border:hover::before {
+  opacity: 1;
 }
 
-.react-flow__controls button:hover {
-  background: rgba(255, 255, 255, 0.06) !important;
-  color: #e5e5e5 !important;
+.shimmer {
+  position: relative;
+  overflow: hidden;
 }
 
-.react-flow__controls button svg {
-  fill: currentColor !important;
+.shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.03) 45%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0.03) 55%, transparent 60%);
+  animation: shimmer 4s ease-in-out infinite;
+  pointer-events: none;
 }
 
-.react-flow__edge-path {
-  stroke-linecap: round;
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
-.react-flow__attribution {
-  display: none !important;
+.glow-line {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(132, 165, 157, 0.3), rgba(194, 178, 128, 0.2), transparent);
+  animation: glowPulse 3s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
 }
 
 @keyframes pulse-soft {
@@ -203,11 +220,67 @@ body {
   animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-@keyframes glow-subtle {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(194, 178, 128, 0); }
-  50% { box-shadow: 0 0 8px 0 rgba(194, 178, 128, 0.1); }
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 
-.animate-glow-subtle {
-  animation: glow-subtle 3s ease-in-out infinite;
+.animate-float {
+  animation: float 6s ease-in-out infinite;
 }
+
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(194, 178, 128, 0); }
+  50% { box-shadow: 0 0 20px 2px rgba(194, 178, 128, 0.08); }
+}
+
+.animate-breathe {
+  animation: breathe 4s ease-in-out infinite;
+}
+
+@keyframes rotate-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-rotate-slow {
+  animation: rotate-slow 60s linear infinite;
+}
+
+.react-flow__handle {
+  width: 6px !important;
+  height: 6px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  border-radius: 3px !important;
+  background: #404040 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  transition: all 0.3s ease;
+}
+
+.react-flow__handle:hover {
+  background: #84a59d !important;
+  border-color: rgba(132, 165, 157, 0.3) !important;
+  transform: scale(1.4);
+  box-shadow: 0 0 8px rgba(132, 165, 157, 0.3);
+}
+
+.react-flow__controls button {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-top-color: rgba(255, 255, 255, 0.1) !important;
+  color: #a3a3a3 !important;
+  border-radius: 8px !important;
+  backdrop-filter: blur(16px) !important;
+  transition: all 0.3s ease !important;
+}
+
+.react-flow__controls button:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #e5e5e5 !important;
+  transform: scale(1.05);
+}
+
+.react-flow__controls button svg { fill: currentColor !important; }
+.react-flow__edge-path { stroke-linecap: round; }
+.react-flow__attribution { display: none !important; }

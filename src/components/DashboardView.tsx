@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import { useAgentStore } from '../store/useAgentStore';
 import type { Agent, AgentStatus, ClaudeCodeTelemetry, TraeTelemetry } from '../types/agent';
 import clsx from 'clsx';
@@ -8,7 +9,15 @@ const STATUS_COLORS: Record<AgentStatus, string> = {
   error: '#b56576', syncing: '#84a59d',
 };
 
-function RingChart({ value, max = 100, color = '#84a59d', size = 64, label }: { value: number; max?: number; color?: string; size?: number; label?: string }) {
+const cardVariants = {
+  hidden: { opacity: 0, y: 20, scale: 0.97 },
+  visible: (i: number) => ({
+    opacity: 1, y: 0, scale: 1,
+    transition: { delay: i * 0.08, duration: 0.5, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
+  }),
+};
+
+function RingChart({ value, max = 100, color = '#84a59d', size = 72, label, sublabel }: { value: number; max?: number; color?: string; size?: number; label?: string; sublabel?: string }) {
   const r = (size - 6) / 2;
   const circ = 2 * Math.PI * r;
   const pct = Math.min(value / max, 1);
@@ -16,18 +25,54 @@ function RingChart({ value, max = 100, color = '#84a59d', size = 64, label }: { 
   return (
     <div className="relative inline-flex items-center justify-center">
       <svg width={size} height={size}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={3} />
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={3} strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" transform={`rotate(-90 ${size / 2} ${size / 2})`} style={{ transition: 'stroke-dashoffset 0.6s ease-out' }} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth={3} />
+        <motion.circle
+          cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={3}
+          strokeDasharray={circ} strokeLinecap="round"
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          initial={{ strokeDashoffset: circ }}
+          animate={{ strokeDashoffset: offset }}
+          transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1], delay: 0.3 }}
+        />
+        <defs>
+          <filter id={`glow-${color.replace('#', '')}`}>
+            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="telemetry-value-highlight text-[14px]">{Math.round(pct * 100)}%</span>
+        <motion.span
+          className="telemetry-value-highlight text-[16px]"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+        >
+          {Math.round(pct * 100)}%
+        </motion.span>
         {label && <span className="telemetry-label" style={{ fontSize: '7px' }}>{label}</span>}
+        {sublabel && <span className="telemetry-value text-[8px] text-neutral-600">{sublabel}</span>}
       </div>
     </div>
   );
 }
 
-function AgentDetailCard({ agent }: { agent: Agent }) {
+function StatBox({ label, value, highlight, color }: { label: string; value: string | number; highlight?: boolean; color?: string }) {
+  return (
+    <div className="glass-panel-inset p-3 text-center relative overflow-hidden group">
+      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.01] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <div className="telemetry-label mb-1.5">{label}</div>
+      <div className={clsx('telemetry-value text-[13px]', highlight && 'telemetry-value-highlight')} style={color ? { color } : undefined}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function AgentDetailCard({ agent, index }: { agent: Agent; index: number }) {
   const color = STATUS_COLORS[agent.status];
   const isWorking = agent.status === 'working';
   const tele = agent.telemetry as Record<string, unknown> | undefined;
@@ -43,86 +88,68 @@ function AgentDetailCard({ agent }: { agent: Agent }) {
   const traeTele = isTrae ? (agent.telemetry as TraeTelemetry) : null;
 
   return (
-    <div
-      className="aero-card p-5"
+    <motion.div
+      custom={index}
+      variants={cardVariants}
+      initial="hidden"
+      animate="visible"
+      whileHover={{ y: -4, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } }}
+      className={clsx('aero-card gradient-border shimmer p-5', isWorking && 'animate-breathe')}
       style={{
-        borderColor: isWorking ? color + '25' : undefined,
-        borderTopColor: isWorking ? color + '40' : undefined,
+        borderColor: isWorking ? color + '20' : undefined,
+        borderTopColor: isWorking ? color + '35' : undefined,
       }}
     >
-      <div className="flex items-start gap-4 mb-4">
-        <RingChart value={cpuVal || 0} color={color} size={64} label="CPU" />
+      <div className="flex items-start gap-5 mb-4">
+        <RingChart
+          value={cpuVal || 0}
+          color={color}
+          size={72}
+          label="CPU"
+          sublabel={agent.status.toUpperCase()}
+        />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2.5 mb-1">
-            <span className="text-[15px] font-medium text-neutral-200" style={{ fontFamily: '"Inter", system-ui, sans-serif' }}>{agent.name}</span>
-            <span className={clsx('aero-badge', isWorking ? `text-[${color}]` : 'text-neutral-500', isWorking ? `bg-[${color}]/15` : 'bg-neutral-800/50')} style={isWorking ? { color, backgroundColor: color + '18' } : {}}>
+          <div className="flex items-center gap-2.5 mb-1.5">
+            <span className="text-[16px] font-semibold text-neutral-200 tracking-wide" style={{ fontFamily: '"Inter", system-ui, sans-serif' }}>
+              {agent.name}
+            </span>
+            <motion.span
+              className="aero-badge"
+              style={{ color, backgroundColor: color + '18' }}
+              animate={isWorking ? { opacity: [1, 0.6, 1] } : {}}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
               <span className="w-1 h-1 rounded-full" style={{ backgroundColor: isWorking ? color : '#525252' }} />
               {agent.status.toUpperCase()}
-            </span>
+            </motion.span>
           </div>
           {agent.backend && <div className="telemetry-label mb-1">{agent.backend}</div>}
-          {agent.model && <div className="telemetry-value text-[10px] text-neutral-500">{agent.model}</div>}
+          {agent.model && <div className="telemetry-value text-[11px] text-neutral-500">{agent.model}</div>}
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-3 mb-3">
-        <div className="glass-panel-inset p-2.5 text-center">
-          <div className="telemetry-label mb-1">PID</div>
-          <div className="telemetry-value">{pid}</div>
-        </div>
-        <div className="glass-panel-inset p-2.5 text-center">
-          <div className="telemetry-label mb-1">CPU</div>
-          <div className="telemetry-value-highlight">{cpuVal ? `${cpuVal.toFixed(1)}%` : '—'}</div>
-        </div>
-        <div className="glass-panel-inset p-2.5 text-center">
-          <div className="telemetry-label mb-1">RAM</div>
-          <div className="telemetry-value">{ramStr}</div>
-        </div>
-        <div className="glass-panel-inset p-2.5 text-center">
-          <div className="telemetry-label mb-1">Uptime</div>
-          <div className="telemetry-value">{uptime}</div>
-        </div>
+      <div className="grid grid-cols-4 gap-2.5 mb-3">
+        <StatBox label="PID" value={pid} />
+        <StatBox label="CPU" value={cpuVal ? `${cpuVal.toFixed(1)}%` : '—'} highlight color={cpuVal > 50 ? '#c2b280' : undefined} />
+        <StatBox label="RAM" value={ramStr} />
+        <StatBox label="Uptime" value={uptime} />
       </div>
 
       {isClaude && claudeTele && (
-        <div className="grid grid-cols-4 gap-3 mb-3">
-          <div className="glass-panel-inset p-2.5 text-center">
-            <div className="telemetry-label mb-1">Work Time</div>
-            <div className="telemetry-value-highlight">{claudeTele.continuousWorkTime}</div>
-          </div>
-          <div className="glass-panel-inset p-2.5 text-center">
-            <div className="telemetry-label mb-1">Sessions</div>
-            <div className="telemetry-value">{claudeTele.sessionCount || '—'}</div>
-          </div>
-          <div className="glass-panel-inset p-2.5 text-center">
-            <div className="telemetry-label mb-1">Cost</div>
-            <div className="telemetry-value">{claudeTele.totalCost}</div>
-          </div>
-          <div className="glass-panel-inset p-2.5 text-center">
-            <div className="telemetry-label mb-1">Last Act</div>
-            <div className="telemetry-value">{claudeTele.lastActivity}</div>
-          </div>
+        <div className="grid grid-cols-4 gap-2.5 mb-3">
+          <StatBox label="Work Time" value={claudeTele.continuousWorkTime} highlight />
+          <StatBox label="Sessions" value={claudeTele.sessionCount || '—'} />
+          <StatBox label="Cost" value={claudeTele.totalCost} />
+          <StatBox label="Last Act" value={claudeTele.lastActivity} />
         </div>
       )}
 
       {isTrae && traeTele && (
-        <div className="grid grid-cols-4 gap-3 mb-3">
-          <div className="glass-panel-inset p-2.5 text-center">
-            <div className="telemetry-label mb-1">Procs</div>
-            <div className="telemetry-value">{traeTele.processCount || '—'}</div>
-          </div>
-          <div className="glass-panel-inset p-2.5 text-center">
-            <div className="telemetry-label mb-1">Project</div>
-            <div className="telemetry-value-highlight">{traeTele.currentProject}</div>
-          </div>
-          <div className="glass-panel-inset p-2.5 text-center">
-            <div className="telemetry-label mb-1">API Calls</div>
-            <div className="telemetry-value">{traeTele.apiCallCount || '—'}</div>
-          </div>
-          <div className="glass-panel-inset p-2.5 text-center">
-            <div className="telemetry-label mb-1">Last API</div>
-            <div className="telemetry-value">{traeTele.lastApiCall}</div>
-          </div>
+        <div className="grid grid-cols-4 gap-2.5 mb-3">
+          <StatBox label="Procs" value={traeTele.processCount || '—'} />
+          <StatBox label="Project" value={traeTele.currentProject} highlight />
+          <StatBox label="API Calls" value={traeTele.apiCallCount || '—'} />
+          <StatBox label="Last API" value={traeTele.lastApiCall} />
         </div>
       )}
 
@@ -154,7 +181,7 @@ function AgentDetailCard({ agent }: { agent: Agent }) {
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 
@@ -164,28 +191,48 @@ export function DashboardView() {
   const workingAgents = agents.filter(a => a.status === 'working');
 
   return (
-    <div className="w-full h-full overflow-y-auto p-4 space-y-4">
-      <div className="flex items-center justify-between">
+    <motion.div
+      className="w-full h-full overflow-y-auto p-2 space-y-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
+      <motion.div
+        className="flex items-center justify-between"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      >
         <div className="flex items-center gap-2.5">
-          <div className="w-1.5 h-1.5 rounded-full bg-[#84a59d] animate-pulse-soft" />
-          <span className="text-[14px] font-medium text-neutral-300" style={{ fontFamily: '"Inter", system-ui, sans-serif' }}>Dashboard</span>
+          <motion.div
+            className="w-1.5 h-1.5 rounded-full bg-[#84a59d]"
+            animate={{ opacity: [1, 0.3, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          />
+          <span className="text-[15px] font-semibold text-neutral-300 tracking-wide" style={{ fontFamily: '"Inter", system-ui, sans-serif' }}>
+            Dashboard
+          </span>
         </div>
         <div className="flex items-center gap-3">
           <span className="telemetry-value text-[10px] text-neutral-600">{activeAgents.length}/{agents.length} ACTIVE</span>
           {workingAgents.length > 0 && (
-            <span className="aero-badge text-[#c2b280] bg-[#c2b280]/15">
-              <span className="w-1 h-1 rounded-full bg-[#c2b280] animate-pulse-soft" />
+            <motion.span
+              className="aero-badge text-[#c2b280] bg-[#c2b280]/15"
+              animate={{ opacity: [1, 0.6, 1] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            >
+              <span className="w-1 h-1 rounded-full bg-[#c2b280]" />
               {workingAgents.length} WORKING
-            </span>
+            </motion.span>
           )}
         </div>
-      </div>
+      </motion.div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        {agents.map((agent) => (
-          <AgentDetailCard key={agent.id} agent={agent} />
+        {agents.map((agent, i) => (
+          <AgentDetailCard key={agent.id} agent={agent} index={i} />
         ))}
       </div>
-    </div>
+    </motion.div>
   );
 }

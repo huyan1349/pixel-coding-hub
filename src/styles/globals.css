@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 @theme {
-  --color-pixel-bg: #0c0c0e;
+  --color-pixel-bg: #08080a;
   --color-pixel-panel: #111113;
-  --color-pixel-dark: #08080a;
+  --color-pixel-dark: #050507;
   --color-pixel-text: #e5e5e5;
   --color-pixel-muted: #737373;
   --color-pixel-online: #84a59d;
