@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAgentStore } from '../store/useAgentStore';
 import type { KeyStatus } from '../types/agent';
 
-const VERSION = 'v0.5.0-alpha';
+const VERSION = 'v0.6.0-alpha';
 
 export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { keysStatus, claudeInstalled, envInfo } = useAgentStore();

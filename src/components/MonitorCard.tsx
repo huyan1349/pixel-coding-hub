@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { useState, useEffect, useRef } from 'react';
-import type { Agent, AgentStatus, ProcessTelemetry, CloudTelemetry, ClaudeCodeTelemetry } from '../types/agent';
+import type { Agent, AgentStatus, ProcessTelemetry, CloudTelemetry, ClaudeCodeTelemetry, TraeTelemetry } from '../types/agent';
 
 const STATUS_DOT: Record<AgentStatus, string> = {
   unconfigured: 'bg-neutral-700',
@@ -70,20 +70,114 @@ function TelemetryRow({ label, value, highlight }: { label: string; value: strin
   );
 }
 
+function SessionStatusBadge({ status }: { status: 'busy' | 'idle' | 'none' }) {
+  const config = {
+    busy: { label: 'BUSY', color: 'text-[#c2b280] bg-[#c2b280]/10' },
+    idle: { label: 'IDLE', color: 'text-[#84a59d] bg-[#84a59d]/10' },
+    none: { label: 'NONE', color: 'text-neutral-600 bg-neutral-800' },
+  };
+  const c = config[status];
+  return (
+    <span className={clsx('font-mono text-[8px] px-1 py-px rounded-sm', c.color)}>
+      {c.label}
+    </span>
+  );
+}
+
 function ClaudeCodeTelemetryGrid({ tele }: { tele: ClaudeCodeTelemetry }) {
   return (
-    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 px-3 py-1.5">
-      <TelemetryRow label="PID" value={tele.pid ?? '—'} />
-      <TelemetryRow label="CPU" value={tele.cpu} highlight={tele.cpu !== '—' && parseFloat(tele.cpu) > 50} />
-      <TelemetryRow label="RAM" value={tele.ram} />
-      <TelemetryRow label="Uptime" value={tele.uptime} />
-      <TelemetryRow label="Model" value={tele.model} highlight />
-      <TelemetryRow label="Cost" value={tele.totalCost} highlight={tele.totalCost !== '$0.00'} />
-      <TelemetryRow label="Sessions" value={tele.sessionCount || '—'} />
-      <TelemetryRow label="Dir" value={tele.workingDir ? tele.workingDir.split('/').pop() || '—' : '—'} />
-      <div className="col-span-2 flex items-center justify-between">
+    <div className="space-y-1 px-3 py-1.5">
+      <div className="flex items-center justify-between mb-0.5">
+        <span className="font-mono text-[9px] text-neutral-500">SESSION</span>
+        <SessionStatusBadge status={tele.sessionStatus} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+        <TelemetryRow label="PID" value={tele.pid ?? '—'} />
+        <TelemetryRow label="CPU" value={tele.cpu} highlight={tele.cpu !== '—' && parseFloat(tele.cpu) > 50} />
+        <TelemetryRow label="RAM" value={tele.ram} />
+        <TelemetryRow label="Uptime" value={tele.uptime} />
+        <TelemetryRow label="Work Time" value={tele.continuousWorkTime} highlight={tele.continuousWorkTime !== '—'} />
+        <TelemetryRow label="Version" value={tele.version} />
+        <TelemetryRow label="Model" value={tele.model} highlight />
+        <TelemetryRow label="Cost" value={tele.totalCost} highlight={tele.totalCost !== '$0.00'} />
+        <TelemetryRow label="Sessions" value={tele.sessionCount || '—'} />
+        <TelemetryRow label="SubProcs" value={tele.subProcessCount || '—'} />
+        <TelemetryRow label="Dir" value={tele.workingDir ? tele.workingDir.split('/').pop() || '—' : '—'} />
+        <TelemetryRow label="Last Act" value={tele.lastActivity} />
+      </div>
+
+      {tele.currentTask && tele.currentTask !== '—' && (
+        <div className="mt-1 pt-1 border-t border-white/[0.04]">
+          <div className="flex items-start gap-1">
+            <span className="font-mono text-[9px] text-neutral-600 shrink-0">TASK</span>
+            <span className="font-mono text-[10px] text-[#c2b280] break-all leading-tight">
+              {tele.currentTask}
+            </span>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between pt-0.5">
         <span className="font-mono text-[10px] text-neutral-600">Load</span>
         <ProgressBar value={tele.cpu !== '—' ? parseFloat(tele.cpu) : 0} />
+      </div>
+    </div>
+  );
+}
+
+function TraeTelemetryGrid({ tele }: { tele: TraeTelemetry }) {
+  return (
+    <div className="space-y-1 px-3 py-1.5">
+      <div className="flex items-center justify-between mb-0.5">
+        <span className="font-mono text-[9px] text-neutral-500">AI AGENT</span>
+        <span className={clsx(
+          'font-mono text-[8px] px-1 py-px rounded-sm',
+          tele.aiAgentActive ? 'text-[#c2b280] bg-[#c2b280]/10' : 'text-neutral-600 bg-neutral-800'
+        )}>
+          {tele.aiAgentActive ? 'ACTIVE' : 'IDLE'}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+        <TelemetryRow label="PID" value={tele.pid ?? '—'} />
+        <TelemetryRow label="CPU" value={tele.totalCpu} highlight={tele.totalCpu !== '—' && parseFloat(tele.totalCpu) > 50} />
+        <TelemetryRow label="RAM" value={tele.totalRam} />
+        <TelemetryRow label="Uptime" value={tele.uptime} />
+        <TelemetryRow label="Procs" value={tele.processCount || '—'} highlight={tele.processCount > 1} />
+        <TelemetryRow label="Project" value={tele.currentProject} highlight={tele.currentProject !== '—'} />
+        <TelemetryRow label="API Calls" value={tele.apiCallCount || '—'} />
+        <TelemetryRow label="Last API" value={tele.lastApiCall} />
+        <TelemetryRow label="Sandbox" value={tele.sandboxSessions || '—'} />
+      </div>
+
+      {tele.subProcesses.length > 0 && (
+        <div className="pt-1 border-t border-white/[0.04]">
+          {tele.subProcesses.slice(0, 4).map((sp) => (
+            <div key={sp.pid} className="flex items-center justify-between">
+              <span className="font-mono text-[9px] text-neutral-700">{sp.role}</span>
+              <span className="font-mono text-[9px] text-neutral-600">{sp.cpu} / {sp.ram}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tele.recentActivity.length > 0 && (
+        <div className="pt-1 border-t border-white/[0.04]">
+          <span className="font-mono text-[9px] text-neutral-600">ACTIVITY</span>
+          <div className="mt-0.5 space-y-px">
+            {tele.recentActivity.slice(-4).map((act, i) => (
+              <div key={i} className="font-mono text-[9px] text-neutral-500 truncate">
+                {act}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between pt-0.5">
+        <span className="font-mono text-[10px] text-neutral-600">Load</span>
+        <ProgressBar value={tele.totalCpu !== '—' ? parseFloat(tele.totalCpu) : 0} />
       </div>
     </div>
   );
@@ -211,6 +305,8 @@ export function MonitorCard({ agent }: { agent: Agent }) {
       <div className="border-b border-white/[0.04]">
         {agent.telemetryType === 'claude-code' && agent.telemetry ? (
           <ClaudeCodeTelemetryGrid tele={agent.telemetry as ClaudeCodeTelemetry} />
+        ) : agent.telemetryType === 'trae' && agent.telemetry ? (
+          <TraeTelemetryGrid tele={agent.telemetry as TraeTelemetry} />
         ) : agent.telemetryType === 'cloud' && agent.telemetry ? (
           <CloudTelemetryGrid tele={agent.telemetry as CloudTelemetry} />
         ) : agent.telemetry ? (
