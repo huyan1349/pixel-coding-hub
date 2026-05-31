@@ -4,7 +4,7 @@ import { loadEnvConfig, getCoordinatorKey, getCoordinatorBaseUrl, getCoordinator
 import { spawnClaude, killAllClaudeProcesses, isClaudeInstalled } from './claude-bridge.js';
 import { detectTraeStatus, startFileWatcher, stopFileWatcher, getRecentChanges, readTraeAIConversations, cleanupTraeBridge } from './trae-bridge.js';
 import { coordinatorAnalyze, type CoordinatorAction } from './coordinator-bridge.js';
-import { getProcessTelemetry, getCloudTelemetry, getSystemMemory } from './telemetry.js';
+import { getProcessTelemetry, getMultiProcessTelemetry, getClaudeCodeTelemetry, getCloudTelemetry, getSystemMemory } from './telemetry.js';
 
 const app = express();
 const PORT = 4001;
@@ -45,20 +45,16 @@ app.get('/api/agents/status', async (_req, res) => {
   const hasAnthropicKey = !!envConfig.anthropicApiKey;
   const sysMem = getSystemMemory();
 
-  const traeTelemetry = getProcessTelemetry(traeStatus.pid);
+  const traeTelemetry = traeStatus.pid
+    ? getMultiProcessTelemetry(traeStatus.pid, 'TRAE SOLO CN')
+    : getProcessTelemetry(null);
   if (traeStatus.aiActive) {
     traeTelemetry.activeFile = traeStatus.workspaceDir
       ? traeStatus.workspaceDir.split('/').pop() || '—'
       : traeTelemetry.activeFile;
   }
 
-  let claudePid: number | null = null;
-  try {
-    const { execSync } = await import('child_process');
-    const claudePs = execSync('pgrep -f "claude.*--output-format" 2>/dev/null', { encoding: 'utf-8' }).trim();
-    if (claudePs) claudePid = parseInt(claudePs.split('\n')[0], 10);
-  } catch { /* no claude process */ }
-  const claudeTelemetry = getProcessTelemetry(claudePid);
+  const claudeTelemetry = getClaudeCodeTelemetry();
 
   const codexTelemetry = getCloudTelemetry(codexLastRequestTime, codexTokenCount, codexPhase);
   const coordinatorTelemetry = getCloudTelemetry(coordinatorLastRequestTime, coordinatorTokenCount, coordinatorPhase);
@@ -66,11 +62,11 @@ app.get('/api/agents/status', async (_req, res) => {
   res.json({
     claude: {
       available: claudeInstalled && hasAnthropicKey,
-      status: claudeInstalled ? (hasAnthropicKey ? 'online' : 'unconfigured') : 'offline',
+      status: claudeTelemetry.activeSession ? 'working' : (claudeInstalled ? (hasAnthropicKey ? 'online' : 'unconfigured') : 'offline'),
       backend: 'DeepSeek API',
-      model: envConfig.anthropicModel || 'deepseek-v4-pro',
+      model: claudeTelemetry.model,
       telemetry: claudeTelemetry,
-      telemetryType: 'process',
+      telemetryType: 'claude-code',
     },
     trae: {
       available: traeStatus.running,
@@ -101,7 +97,7 @@ app.get('/api/agents/status', async (_req, res) => {
       available: false,
       status: 'offline',
       backend: 'Reserved',
-      telemetry: { pid: null, cpu: '—', ram: '—', uptime: '—', activeFile: '—', threads: 0 },
+      telemetry: { pid: null, cpu: '—', ram: '—', uptime: '—', activeFile: '—', threads: 0, totalCpu: '—', totalRam: '—', processCount: 0, subProcesses: [] },
       telemetryType: 'process',
     },
     system: {
