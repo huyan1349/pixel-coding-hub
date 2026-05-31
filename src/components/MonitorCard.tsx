@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { useState, useEffect, useRef } from 'react';
-import type { Agent, AgentStatus, ProcessTelemetry, CloudTelemetry } from '../types/agent';
+import type { Agent, AgentStatus, ProcessTelemetry, CloudTelemetry, ClaudeCodeTelemetry } from '../types/agent';
 
 const STATUS_DOT: Record<AgentStatus, string> = {
   unconfigured: 'bg-neutral-700',
@@ -59,31 +59,28 @@ function ProgressBar({ value, max = 100 }: { value: number; max?: number }) {
   );
 }
 
-function ProcessTelemetryGrid({ tele }: { tele: ProcessTelemetry }) {
+function TelemetryRow({ label, value, highlight }: { label: string; value: string | number; highlight?: boolean }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="font-mono text-[10px] text-neutral-600">{label}</span>
+      <span className={clsx('font-mono text-[10px]', highlight ? 'text-[#c2b280]' : 'text-neutral-300')}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function ClaudeCodeTelemetryGrid({ tele }: { tele: ClaudeCodeTelemetry }) {
   return (
     <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 px-3 py-1.5">
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[10px] text-neutral-600">PID</span>
-        <span className="font-mono text-[10px] text-neutral-300">{tele.pid ?? '—'}</span>
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[10px] text-neutral-600">CPU</span>
-        <span className={clsx('font-mono text-[10px]', tele.cpu !== '—' && parseFloat(tele.cpu) > 50 ? 'text-[#b56576]' : 'text-neutral-300')}>
-          {tele.cpu}
-        </span>
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[10px] text-neutral-600">RAM</span>
-        <span className="font-mono text-[10px] text-neutral-300">{tele.ram}</span>
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[10px] text-neutral-600">Threads</span>
-        <span className="font-mono text-[10px] text-neutral-300">{tele.threads || '—'}</span>
-      </div>
-      <div className="col-span-2 flex items-center justify-between">
-        <span className="font-mono text-[10px] text-neutral-600">File</span>
-        <span className="font-mono text-[10px] text-neutral-300 truncate max-w-[120px]">{tele.activeFile}</span>
-      </div>
+      <TelemetryRow label="PID" value={tele.pid ?? '—'} />
+      <TelemetryRow label="CPU" value={tele.cpu} highlight={tele.cpu !== '—' && parseFloat(tele.cpu) > 50} />
+      <TelemetryRow label="RAM" value={tele.ram} />
+      <TelemetryRow label="Uptime" value={tele.uptime} />
+      <TelemetryRow label="Model" value={tele.model} highlight />
+      <TelemetryRow label="Cost" value={tele.totalCost} highlight={tele.totalCost !== '$0.00'} />
+      <TelemetryRow label="Sessions" value={tele.sessionCount || '—'} />
+      <TelemetryRow label="Dir" value={tele.workingDir ? tele.workingDir.split('/').pop() || '—' : '—'} />
       <div className="col-span-2 flex items-center justify-between">
         <span className="font-mono text-[10px] text-neutral-600">Load</span>
         <ProgressBar value={tele.cpu !== '—' ? parseFloat(tele.cpu) : 0} />
@@ -92,29 +89,40 @@ function ProcessTelemetryGrid({ tele }: { tele: ProcessTelemetry }) {
   );
 }
 
+function ProcessTelemetryGrid({ tele }: { tele: ProcessTelemetry }) {
+  return (
+    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 px-3 py-1.5">
+      <TelemetryRow label="PID" value={tele.pid ?? '—'} />
+      <TelemetryRow label="CPU" value={tele.totalCpu} highlight={tele.totalCpu !== '—' && parseFloat(tele.totalCpu) > 50} />
+      <TelemetryRow label="RAM" value={tele.totalRam} />
+      <TelemetryRow label="Uptime" value={tele.uptime} />
+      <TelemetryRow label="Procs" value={tele.processCount || '—'} highlight={tele.processCount > 1} />
+      <TelemetryRow label="File" value={tele.activeFile} />
+      {tele.subProcesses.length > 0 && (
+        <div className="col-span-2 mt-0.5 pt-0.5 border-t border-white/[0.04]">
+          {tele.subProcesses.slice(0, 3).map((sp) => (
+            <div key={sp.pid} className="flex items-center justify-between">
+              <span className="font-mono text-[9px] text-neutral-700">{sp.role}</span>
+              <span className="font-mono text-[9px] text-neutral-600">{sp.cpu} / {sp.ram}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="col-span-2 flex items-center justify-between">
+        <span className="font-mono text-[10px] text-neutral-600">Load</span>
+        <ProgressBar value={tele.totalCpu !== '—' ? parseFloat(tele.totalCpu) : 0} />
+      </div>
+    </div>
+  );
+}
+
 function CloudTelemetryGrid({ tele }: { tele: CloudTelemetry }) {
   return (
     <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 px-3 py-1.5">
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[10px] text-neutral-600">Latency</span>
-        <span className={clsx('font-mono text-[10px]', tele.latency !== '—' && parseInt(tele.latency) > 2000 ? 'text-[#b56576]' : 'text-neutral-300')}>
-          {tele.latency}
-        </span>
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[10px] text-neutral-600">Tokens</span>
-        <span className={clsx('font-mono text-[10px]', tele.tokens > 0 ? 'text-[#c2b280]' : 'text-neutral-300')}>
-          {tele.tokens || '—'}
-        </span>
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[10px] text-neutral-600">Phase</span>
-        <span className="font-mono text-[10px] text-neutral-300">{tele.phase}</span>
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[10px] text-neutral-600">Reqs</span>
-        <span className="font-mono text-[10px] text-neutral-300">{tele.requests || '—'}</span>
-      </div>
+      <TelemetryRow label="Latency" value={tele.latency} highlight={tele.latency !== '—' && parseInt(tele.latency) > 2000} />
+      <TelemetryRow label="Tokens" value={tele.tokens || '—'} highlight={tele.tokens > 0} />
+      <TelemetryRow label="Phase" value={tele.phase} />
+      <TelemetryRow label="Reqs" value={tele.requests || '—'} />
       <div className="col-span-2 flex items-center justify-between">
         <span className="font-mono text-[10px] text-neutral-600">Load</span>
         <ProgressBar value={tele.load} />
@@ -201,7 +209,9 @@ export function MonitorCard({ agent }: { agent: Agent }) {
       </div>
 
       <div className="border-b border-white/[0.04]">
-        {agent.telemetryType === 'cloud' && agent.telemetry ? (
+        {agent.telemetryType === 'claude-code' && agent.telemetry ? (
+          <ClaudeCodeTelemetryGrid tele={agent.telemetry as ClaudeCodeTelemetry} />
+        ) : agent.telemetryType === 'cloud' && agent.telemetry ? (
           <CloudTelemetryGrid tele={agent.telemetry as CloudTelemetry} />
         ) : agent.telemetry ? (
           <ProcessTelemetryGrid tele={agent.telemetry as ProcessTelemetry} />

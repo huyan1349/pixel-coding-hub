@@ -17,6 +17,10 @@ export interface ProcessTelemetry {
   uptime: string;
   activeFile: string;
   threads: number;
+  totalCpu: string;
+  totalRam: string;
+  processCount: number;
+  subProcesses: Array<{ pid: number; role: string; cpu: string; ram: string }>;
 }
 
 export interface CloudTelemetry {
@@ -25,6 +29,14 @@ export interface CloudTelemetry {
   phase: string;
   load: number;
   requests: number;
+}
+
+export interface ClaudeCodeTelemetry extends ProcessTelemetry {
+  activeSession: boolean;
+  workingDir: string | null;
+  model: string;
+  totalCost: string;
+  sessionCount: number;
 }
 
 export interface Agent {
@@ -41,8 +53,8 @@ export interface Agent {
   workspaceDir?: string | null;
   aiActive?: boolean;
   logs: string[];
-  telemetry?: ProcessTelemetry | CloudTelemetry;
-  telemetryType?: 'process' | 'cloud';
+  telemetry?: ProcessTelemetry | CloudTelemetry | ClaudeCodeTelemetry;
+  telemetryType?: 'process' | 'cloud' | 'claude-code';
 }
 
 export interface KeyStatus {
