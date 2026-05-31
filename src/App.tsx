@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { AppShell } from './components/AppShell';
 import type { ViewId } from './components/Sidebar';
 import { MainStage } from './components/MainStage';
@@ -6,6 +7,12 @@ import { DashboardView } from './components/DashboardView';
 import { LogsView } from './components/LogsView';
 import { SettingsPanel } from './components/SettingsPanel';
 import { useAgentStore } from './store/useAgentStore';
+
+const pageVariants = {
+  enter: { opacity: 0, y: 12, scale: 0.98 },
+  center: { opacity: 1, y: 0, scale: 1 },
+  exit: { opacity: 0, y: -8, scale: 0.99 },
+};
 
 export default function App() {
   const { fetchKeysStatus, fetchAgentStatus } = useAgentStore();
@@ -50,7 +57,19 @@ export default function App() {
   return (
     <>
       <AppShell activeView={activeView} onViewChange={setActiveView}>
-        {renderView()}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeView}
+            className="w-full h-full"
+            variants={pageVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {renderView()}
+          </motion.div>
+        </AnimatePresence>
       </AppShell>
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>
