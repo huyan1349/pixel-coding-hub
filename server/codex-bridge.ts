@@ -10,7 +10,7 @@ export async function streamCodex(
   prompt: string,
   apiKey: string,
   onChunk: (text: string) => void,
-  baseUrl = 'https://api.openai.com/v1',
+  baseUrl = 'https://api.deepseek.com/v1',
 ): Promise<{ output: string; success: boolean }> {
   const output: string[] = [];
 
@@ -22,13 +22,13 @@ export async function streamCodex(
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'deepseek-chat',
         messages: [
-          { role: 'system', content: 'You are Codex, a code generation agent. Output only code, no explanations.' },
+          { role: 'system', content: 'You are a code generation agent. Output only code, no explanations unless asked.' },
           { role: 'user', content: prompt },
         ],
         stream: true,
-        max_tokens: 1024,
+        max_tokens: 2048,
       }),
     });
 

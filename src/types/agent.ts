@@ -12,11 +12,23 @@ export type TaskStatus = 'todo' | 'running' | 'done' | 'error';
 export interface Agent {
   id: string;
   name: string;
-  kind: 'codex' | 'trae' | 'claude-code-cli' | 'custom';
+  kind: 'codex' | 'trae' | 'claude-code-cli' | 'coordinator' | 'custom';
   status: AgentStatus;
   capabilities: string[];
   avatarSeed: string;
   apiKey: string;
+  backend?: string;
+  model?: string;
+  pid?: number | null;
+  workspaceDir?: string | null;
+  aiActive?: boolean;
+}
+
+export interface KeyStatus {
+  key: string;
+  available: boolean;
+  masked: string;
+  source: string;
 }
 
 export interface FlowNodeData {
