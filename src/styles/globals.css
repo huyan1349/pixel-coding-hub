@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 @theme {
-  --color-pixel-bg: #0a0a0a;
-  --color-pixel-panel: #111111;
-  --color-pixel-dark: #050505;
+  --color-pixel-bg: #0c0c0e;
+  --color-pixel-panel: #111113;
+  --color-pixel-dark: #08080a;
   --color-pixel-text: #e5e5e5;
   --color-pixel-muted: #737373;
   --color-pixel-online: #84a59d;
@@ -14,6 +14,6 @@
   --color-pixel-working: #c2b280;
 
   --font-pixel: "Press Start 2P", monospace;
-  --font-sans: system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  --font-sans: "Inter", "SF Pro Display", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
 }

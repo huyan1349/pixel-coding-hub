@@ -52,20 +52,21 @@ export function MainStage() {
   };
 
   return (
-    <div className="w-full h-full relative overflow-hidden bg-pixel-bg">
+    <div className="w-full h-full relative overflow-hidden rounded-2xl" style={{ backgroundColor: '#0c0c0e' }}>
       <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
-        <div className="glass-panel px-2 py-1 font-pixel text-[9px] text-pixel-muted">
-          STAGE MAP
+        <div className="glass-panel-inset px-2.5 py-1">
+          <span className="telemetry-label" style={{ fontSize: '10px' }}>STAGE MAP</span>
         </div>
         {sseConnected && (
-          <span className="glass-panel px-2 py-1 font-pixel text-[9px] text-pixel-online">
-            LIVE
-          </span>
+          <div className="glass-panel-inset px-2.5 py-1 flex items-center gap-1.5">
+            <span className="w-1 h-1 rounded-full bg-[#84a59d] animate-pulse-soft" />
+            <span className="telemetry-label" style={{ fontSize: '10px', color: '#84a59d' }}>LIVE</span>
+          </div>
         )}
       </div>
 
       <div className="absolute bottom-3 left-3 right-3 z-10">
-        <div className="glass-panel p-2 flex items-center gap-2">
+        <div className="glass-panel p-2.5 flex items-center gap-2.5">
           <input
             type="text"
             value={prompt}
@@ -73,14 +74,15 @@ export function MainStage() {
             onKeyDown={handleKeyDown}
             placeholder="输入任务描述，Coordinator 将分析并分配给各 Agent..."
             disabled={isStreaming}
-            className="flex-1 bg-transparent font-mono text-xs text-neutral-200 placeholder:text-neutral-600 focus:outline-none"
+            className="flex-1 bg-transparent text-[12px] text-neutral-200 placeholder:text-neutral-600 focus:outline-none"
+            style={{ fontFamily: '"Inter", system-ui, sans-serif', fontWeight: 300 }}
           />
           <button
             onClick={isStreaming ? disconnectSSE : handleDispatch}
             disabled={!isStreaming && !prompt.trim()}
             className={clsx(
-              'pixel-button font-pixel text-[9px] px-3 py-1',
-              isStreaming && 'border-[#b56576]/30',
+              'pixel-button',
+              isStreaming && 'border-[#b56576]/30 text-[#b56576]',
             )}
           >
             {isStreaming ? 'STOP' : 'DISPATCH'}
@@ -98,18 +100,18 @@ export function MainStage() {
         onInit={onInit}
         fitView
         proOptions={{ hideAttribution: true }}
-        style={{ backgroundColor: '#0a0a0a' }}
+        style={{ backgroundColor: '#0c0c0e' }}
         defaultEdgeOptions={{
           type: 'flowEdge',
           style: { stroke: '#262626', strokeWidth: 1 },
         }}
       >
         <Controls
-          className="!bg-white/[0.02] !border-white/[0.08] !backdrop-blur-md !rounded"
+          className="!bg-white/[0.03] !border-white/[0.06] !backdrop-blur-xl !rounded-xl"
           showInteractive={false}
         />
         <MiniMap
-          className="!bg-white/[0.02] !border-white/[0.08] !backdrop-blur-md !rounded"
+          className="!bg-white/[0.02] !border-white/[0.06] !backdrop-blur-xl !rounded-xl"
           nodeColor="#262626"
           maskColor="rgba(0,0,0,0.7)"
         />
