@@ -54,7 +54,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
         </div>
 
         <div className="mt-6 pt-3 border-t border-white/[0.06] flex justify-between items-center">
-          <span className="font-mono text-[10px] text-neutral-600">Persisted via localStorage</span>
+          <span className="font-mono text-[10px] text-neutral-600">Keys sent via POST /api/session</span>
           <span className="font-pixel text-[9px] text-neutral-600">{VERSION}</span>
         </div>
       </div>

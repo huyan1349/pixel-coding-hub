@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware';
 import type { Agent, AgentStatus, SSEEvent, TaskStatus } from '../types/agent';
 import type { Node, Edge } from '@xyflow/react';
 
+const BRIDGE_URL = 'http://localhost:4001';
+
 const initialNodes: Node[] = [
   {
     id: 'input-1',
@@ -77,13 +79,13 @@ interface AgentState {
   updateAgentApiKey: (id: string, apiKey: string) => void;
   triggerConnectionMock: (id: string) => void;
   updateNodeStatus: (nodeId: string, status: TaskStatus) => void;
-  connectSSE: () => void;
+  connectSSE: () => Promise<void>;
   disconnectSSE: () => void;
   resetFlow: () => void;
   addEventLog: (message: string) => void;
 }
 
-let eventSourceRef: EventSource | null = null;
+let abortControllerRef: AbortController | null = null;
 
 export const useAgentStore = create<AgentState>()(
   persist(
@@ -136,58 +138,115 @@ export const useAgentStore = create<AgentState>()(
           }),
         })),
 
-      connectSSE: () => {
-        const { isStreaming, sseConnected } = get();
+      connectSSE: async () => {
+        const { isStreaming, sseConnected, agents } = get();
         if (isStreaming || sseConnected) return;
 
         set({ isStreaming: true, eventLog: [], sseConnected: false });
         get().resetFlow();
 
         try {
-          const es = new EventSource('http://localhost:4001/api/stream');
-          eventSourceRef = es;
+          const keys: Record<string, string> = {};
+          agents.forEach((a) => {
+            if (a.apiKey) keys[a.id] = a.apiKey;
+          });
 
-          es.onopen = () => {
-            set({ sseConnected: true });
-            get().addEventLog('[SSE] Connected to bridge server');
-          };
+          const sessionRes = await fetch(`${BRIDGE_URL}/api/session`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ keys }),
+          });
 
-          es.onmessage = (e) => {
-            try {
-              const event: SSEEvent = JSON.parse(e.data);
-              get().updateNodeStatus(event.nodeId, event.status);
+          if (!sessionRes.ok) {
+            get().addEventLog('[SSE] Session creation failed');
+            set({ isStreaming: false });
+            return;
+          }
 
-              if (event.nodeId.startsWith('agent-')) {
-                const agentId = event.nodeId.replace('agent-', '');
-                const agentStatus: AgentStatus =
-                  event.status === 'running' ? 'working' :
-                  event.status === 'done' ? 'online' :
-                  event.status === 'error' ? 'error' : 'offline';
-                get().updateAgentStatus(agentId, agentStatus);
+          const { sessionId } = await sessionRes.json();
+          get().addEventLog('[SSE] Session established');
+
+          const abortController = new AbortController();
+          abortControllerRef = abortController;
+
+          const streamRes = await fetch(
+            `${BRIDGE_URL}/api/stream?sessionId=${sessionId}`,
+            { signal: abortController.signal },
+          );
+
+          if (!streamRes.ok || !streamRes.body) {
+            get().addEventLog('[SSE] Stream connection failed');
+            set({ isStreaming: false });
+            return;
+          }
+
+          set({ sseConnected: true });
+          get().addEventLog('[SSE] Connected to bridge server');
+
+          const reader = streamRes.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || !trimmed.startsWith('data: ')) continue;
+              const payload = trimmed.slice(6);
+
+              try {
+                const event: SSEEvent = JSON.parse(payload);
+
+                if (event.nodeId === '__system__') {
+                  get().addEventLog(event.message);
+                  if (event.status === 'done' || event.status === 'error') {
+                    set({ isStreaming: false, sseConnected: false });
+                  }
+                  continue;
+                }
+
+                get().updateNodeStatus(event.nodeId, event.status as TaskStatus);
+
+                if (event.nodeId.startsWith('agent-')) {
+                  const agentId = event.nodeId.replace('agent-', '');
+                  const agentStatus: AgentStatus =
+                    event.status === 'running' ? 'working' :
+                    event.status === 'done' ? 'online' :
+                    event.status === 'error' ? 'error' : 'offline';
+                  get().updateAgentStatus(agentId, agentStatus);
+                }
+
+                get().addEventLog(event.message);
+              } catch {
+                // skip malformed
               }
-
-              get().addEventLog(event.message);
-            } catch {
-              get().addEventLog('[SSE] Parse error');
             }
-          };
+          }
 
-          es.onerror = () => {
-            set({ isStreaming: false, sseConnected: false });
-            get().addEventLog('[SSE] Connection closed');
-            es.close();
-            eventSourceRef = null;
-          };
-        } catch {
           set({ isStreaming: false, sseConnected: false });
-          get().addEventLog('[SSE] Failed to connect');
+          get().addEventLog('[SSE] Stream ended');
+
+          await fetch(`${BRIDGE_URL}/api/session/${sessionId}`, { method: 'DELETE' }).catch(() => {});
+        } catch (err) {
+          if ((err as Error).name !== 'AbortError') {
+            get().addEventLog('[SSE] Connection error');
+          }
+          set({ isStreaming: false, sseConnected: false });
+        } finally {
+          abortControllerRef = null;
         }
       },
 
       disconnectSSE: () => {
-        if (eventSourceRef) {
-          eventSourceRef.close();
-          eventSourceRef = null;
+        if (abortControllerRef) {
+          abortControllerRef.abort();
+          abortControllerRef = null;
         }
         set({ isStreaming: false, sseConnected: false });
       },
